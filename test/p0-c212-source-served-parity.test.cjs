@@ -27,9 +27,11 @@ test('C212: production HTML serves the three optimized, byte-exact compiled sour
 });
 test('C212: release version stays internally consistent',()=>{
  const v=JSON.parse(read('docs/version.json')),sw=read('docs/sw.js'),dashboard=read('docs/dashboard.html');
- assert.equal(v.version,'v0.8.94');
- assert.equal(v.shell,'f123-shell-v894');
- assert.equal(v.cacheGeneration,'golden430');
+ // C213: a pinned literal breaks every later release; check the three identities agree instead.
+ const n=String(v.version||'').match(/^v0\.(\d)\.(\d\d)$/);
+ assert.ok(n,'version must look like v0.N.NN');
+ assert.equal(v.shell,'f123-shell-v'+n[1]+n[2]);
+ assert.match(v.cacheGeneration,/^golden\d+$/);
  assert.ok(sw.includes('const CACHE = "'+v.shell+'";'));
  assert.ok(sw.includes('const CACHE_GENERACION = "-'+v.cacheGeneration+'";'));
  assert.ok(dashboard.includes('name="dashboard-shell" content="'+v.shell+'"'));
