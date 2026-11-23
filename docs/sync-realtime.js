@@ -561,6 +561,7 @@
       // Subir nuestro checkpoint poco despues de conectar, y luego cada tanto,
       // asi el relay siempre tiene una foto reciente para el que llegue nuevo.
       setTimeout(function () { try { subirCheckpoint(true); } catch (_) {} }, 1500 + Math.random() * 1500);
+      if (ws && ws.relayLayer === "f123_relay_cupo_cf_v1") programarFichas();
       setTimeout(publicarFichas, 20000); // after the pull, so this device merges what others said first
       setTimeout(publicarFichas, 60000); // a stuck history can show only after the first attempt
       try { if (_ckptTimer) clearInterval(_ckptTimer); _ckptTimer = setInterval(function () { try { subirCheckpoint(false); } catch (_) {} try { releerFotoSiAtascado(); } catch (_) {} try { publicarFichas(); } catch (_) {} }, 180000); } catch (_) {}
@@ -585,7 +586,8 @@
          Jitter para no saturar cuando muchos dispositivos reconectan a la vez (wifi del local). */
       setTimeout(function () { try { pedirCatalogo(); } catch (_) {} }, 800 + Math.random() * 1200);
     };
-    ws.onmessage = async (ev) => {
+    let _colaMsgs = Promise.resolve();
+    ws.onmessage = (ev) => {
       // If the active notebook changed before page reload, do not apply
       // bytes from the old shop or acknowledge them in the new one.
       if (miGeneracion !== _conexionGeneracion || ws !== _socketDeEstaConexion ||
@@ -595,10 +597,8 @@
         notificarEstado("apagado");
         return;
       }
-      // Frame de presencia (2026-07-23): el relay los manda en TEXTO plano,
-      // sin cifrar (solo es un numero de conexiones, no dato del negocio).
-      // Las Ops reales siempre son binarias (ArrayBuffer, cifradas). Este
-      // chequeo de tipo es la unica forma de distinguirlos.
+      // Frame de presencia / persist-result (texto plano): manejar al instante salvo pull-page,
+      // que espera en FIFO a que descifren y apliquen los frames previos del mismo pull.
       if (typeof ev.data === "string") {
         try {
           const msg = JSON.parse(ev.data);
@@ -610,8 +610,11 @@
               notificarEstado(estadoActual);
             }
             if (msg.kind === "op" && msg.ok === true && _fichasEnVuelo[msg.id]) {
-              var _fm = leerFirmasFichas(); Object.assign(_fm, _fichasEnVuelo[msg.id]); delete _fichasEnVuelo[msg.id];
-              try { localStorage.setItem("f123_fichas_" + salaIdActual, JSON.stringify(_fm)); } catch (_) {}
+              var _inf = _fichasEnVuelo[msg.id], _fk = (_inf && _inf.key) || claveFirmasFichas();
+              var _fs = (_inf && _inf.firmas) || _inf;
+              delete _fichasEnVuelo[msg.id];
+              var _fm = leerFirmasFichas(_fk); Object.assign(_fm, _fs);
+              try { localStorage.setItem(_fk, JSON.stringify(_fm)); } catch (_) {}
               return;
             }
             if (msg.kind === "ckpt" && msg.ok === true && _ckptEnVuelo && msg.id === _ckptEnVuelo.id) {
@@ -621,8 +624,23 @@
             }
             return;
           }
-          if (msg && msg.k === "pull-page" && msg.v === 2) { recibirPaginaPull(msg); return; }
+          if (msg && msg.k === "pull-page" && msg.v === 2) {
+            _colaMsgs = _colaMsgs.then(() => _procesarMensajeEnCola(ev)).catch(() => {});
+            return;
+          }
           if (msg && msg.__presencia__) { presenciaN = msg.n; notificarEstado(estadoActual); }
+        } catch (_) {}
+        return;
+      }
+      _colaMsgs = _colaMsgs.then(() => _procesarMensajeEnCola(ev)).catch(() => {});
+    };
+    async function _procesarMensajeEnCola(ev) {
+      if (miGeneracion !== _conexionGeneracion || ws !== _socketDeEstaConexion ||
+          codigoCuadernoActivo() !== codigoNorm) return;
+      if (typeof ev.data === "string") {
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg && msg.k === "pull-page" && msg.v === 2) recibirPaginaPull(msg);
         } catch (_) {}
         return;
       }
@@ -717,9 +735,12 @@
           try {
             if (op.deviceId !== deviceId() && window.OCSync && window.OCSync.aplicarFichas) {
               var _antes = firmasActuales();
-              window.OCSync.aplicarFichas(op.payload);
+              var _rf = window.OCSync.aplicarFichas(op.payload);
               marcarFichasRecibidas(_antes, op.payload);
               if (typeof window.cargarInventario === "function") window.cargarInventario();
+              if (_rf && _rf.ok && (_rf.agregadasU || _rf.agregadosP || _rf.actualizados || _rf.ventasAgregadas || _rf.clientesAgregados || _rf.promotorasAgregadas || _rf.sucursalesAgregadas || (op.payload && Array.isArray(op.payload.hechos) && op.payload.hechos.length))) {
+                try { window.dispatchEvent(new CustomEvent("oc-sync-merge", { detail: { perchas: _rf.agregadasU || 0, productos: _rf.agregadosP || 0, actualizados: _rf.actualizados || 0, ventas: _rf.ventasAgregadas || 0, clientes: _rf.clientesAgregados || 0, origen: "fichas" } })); } catch (_) {}
+              }
             }
           } catch (_) {}
           return;
@@ -770,7 +791,7 @@
           await ws.confirmPeerReceipt(receipt, proof);
         }
       } catch (_) { /* mensaje ilegible (codigo distinto, ruido) — se ignora, sordo a proposito */ }
-    };
+    }
     // The current app notebook answers encrypted Owner/admin dashboard
     // challenges without relying on TURN. This lane never handles Yjs or sales.
     try {
@@ -1511,74 +1532,131 @@
      every record, which absorbs the past. Receivers merge with the catalog rule, the latest count wins, and nothing is wiped.
      With a healthy Yjs this sends nothing. */
   var _fichasEnVuelo = {}, _fichasTimer = null, _paginasPull = 0;
+  var FICHAS_COLS = [
+    ["productos", "p:"], ["ubicaciones", "u:"], ["usuarios", "e:"],
+    ["clientes", "c:"], ["promotoras", "pr:"], ["sucursales", "su:"],
+    ["categorias", "cat:"], ["ajustes", "aj:"], ["ventas", "v:"],
+    ["gastos", "g:"], ["ajustesComision", "ac:"], ["payouts", "pay:"],
+    ["payoutConflicts", "pc:"], ["payoutQuarantine", "pq:"], ["transferencias", "tr:"],
+    ["actividad", "act:"]
+  ];
   function yjsAtascado() {
     var y = window.OCYjs, st = y && y.doc && y.doc.store;
     return !!(st && (st.pendingStructs || st.pendingDs || (y.canal && y.canal.recuperando)));
   }
+  function claveFirmasFichas(sock) {
+    var w = sock || ws;
+    var layer = w && w.relayLayer;
+    return "f123_fichas_" + salaIdActual + (layer === "f123_relay_cupo_cf_v1" ? "_cf_v1" : "");
+  }
   function firmaFicha(x) { var s = JSON.stringify(x), h = 5381; for (var i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) | 0; return h.toString(36); }
-  function leerFirmasFichas() { try { return JSON.parse(localStorage.getItem("f123_fichas_" + salaIdActual) || "{}") || {}; } catch (_) { return {}; } }
-  function registrosFichas() {
-    var s = window.OCSync && window.OCSync.estadoParaCheckpoint ? window.OCSync.estadoParaCheckpoint() : null, out = {};
+  function leerFirmasFichas(key) { try { return JSON.parse(localStorage.getItem(key || claveFirmasFichas()) || "{}") || {}; } catch (_) { return {}; } }
+  function idDeFicha(x, pref) {
+    if (x && x.id != null && x.id !== "") return String(x.id);
+    return pref + firmaFicha(x);
+  }
+  function registrosFichas(hechosLista) {
+    var s = window.OCSync && window.OCSync.estadoParaFichas
+      ? window.OCSync.estadoParaFichas()
+      : (window.OCSync && window.OCSync.estadoParaCheckpoint ? window.OCSync.estadoParaCheckpoint() : null);
+    var out = {};
     if (!s) return out;
-    (s.productos || []).forEach(function (p) { out["p:" + p.id] = { lista: "productos", dato: p }; });
-    (s.ubicaciones || []).forEach(function (u) { out["u:" + u.id] = { lista: "ubicaciones", dato: u }; });
-    (s.usuarios || []).forEach(function (u) { out["e:" + u.id] = { lista: "usuarios", dato: u }; });
+    FICHAS_COLS.forEach(function (par) {
+      (s[par[0]] || []).forEach(function (item) {
+        if (!item) return;
+        out[par[1] + idDeFicha(item, par[1])] = { lista: par[0], dato: item };
+      });
+    });
+    if (Array.isArray(hechosLista)) {
+      hechosLista.forEach(function (h) {
+        if (h && h.id) out["h:" + String(h.id)] = { lista: "hechos", dato: h };
+      });
+    }
     out.pins = { pins: { pinsRol: s.pinsRol, ownerPinTs: s.ownerPinTs } };
     return out;
   }
   function firmasActuales() { var r = registrosFichas(), f = {}; Object.keys(r).forEach(function (k) { f[k] = firmaFicha(r[k]); }); return f; }
   // What just arrived is not news to repeat, unless this device held an unsent change of its own to that record.
   function marcarFichasRecibidas(antes, payload) {
-    var ahora = firmasActuales(), guardadas = leerFirmasFichas();
-    [["productos", "p:"], ["ubicaciones", "u:"], ["usuarios", "e:"]].forEach(function (par) {
+    var fk = claveFirmasFichas(), ahora = firmasActuales(), guardadas = leerFirmasFichas(fk);
+    FICHAS_COLS.forEach(function (par) {
       ((payload && payload[par[0]]) || []).forEach(function (x) {
-        var k = par[1] + (x && x.id);
-        if (x && x.id && antes[k] === guardadas[k] && ahora[k]) guardadas[k] = ahora[k];
+        var k = par[1] + idDeFicha(x, par[1]);
+        if (antes[k] === guardadas[k] && ahora[k]) guardadas[k] = ahora[k];
       });
     });
     if (antes.pins === guardadas.pins && ahora.pins) guardadas.pins = ahora.pins;
-    try { localStorage.setItem("f123_fichas_" + salaIdActual, JSON.stringify(guardadas)); } catch (_) {}
+    try { localStorage.setItem(fk, JSON.stringify(guardadas)); } catch (_) {}
   }
   async function publicarFichas() {
     try {
-      if (!ws || ws.peerOnly || ws.readyState !== WebSocket.OPEN || !claveActual || !yjsAtascado()) return;
+      var sock = ws;
+      if (!sock || sock.peerOnly || sock.readyState !== WebSocket.OPEN || !claveActual) return;
+      var esCf = sock.relayLayer === "f123_relay_cupo_cf_v1";
+      var rol = ""; try { rol = (window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual()) || ""; } catch (_) {}
+      // Path (a): authenticated Owner migrates complete sales/money/catalog once to Cloudflare private relay
+      // even when Yjs is not stuck; admin/employee stay read-only on CF so POST /op never trips 403/1013.
+      if (esCf) { if (rol !== "dueno") return; }
+      else if (!yjsAtascado()) return;
       // v652: with a stuck history nothing announced a new image: no hash, so no device could ask for it.
       try { if (window.OCSync.hashearFotosProductos) await window.OCSync.hashearFotosProductos(); if (window.OCYjs.sembrarFotos) window.OCYjs.sembrarFotos(); } catch (_) {}
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
-      var regs = registrosFichas(), firmas = leerFirmasFichas(), trozos = [], act = null, tam = 0;
+      if (ws !== sock || sock.readyState !== WebSocket.OPEN) return;
+      var hechosLista = [];
+      try {
+        if (window.AMG && window.AMG.Hechos && typeof window.AMG.Hechos.todos === "function") {
+          hechosLista = await window.AMG.Hechos.todos();
+        }
+      } catch (_) { hechosLista = []; }
+      if (ws !== sock || sock.readyState !== WebSocket.OPEN) return;
+      var fk = claveFirmasFichas(sock);
+      var regs = registrosFichas(hechosLista), firmas = leerFirmasFichas(fk), trozos = [], act = null, tam = 0;
       Object.keys(regs).forEach(function (k) {
         var f = firmaFicha(regs[k]); if (f === firmas[k]) return;
         var n = JSON.stringify(regs[k]).length;
-        if (!act || tam + n > 8000) { act = { datos: {}, firmas: {} }; trozos.push(act); tam = 0; }
+        if (!act || tam + n > 48000) { act = { datos: {}, firmas: {} }; trozos.push(act); tam = 0; }
         tam += n; act.firmas[k] = f;
         if (regs[k].pins) Object.assign(act.datos, regs[k].pins);
         else (act.datos[regs[k].lista] = act.datos[regs[k].lista] || []).push(regs[k].dato);
       });
-      for (var i = 0; i < trozos.length; i++) {
+      var enviadosAhora = Math.min(trozos.length, 40);
+      for (var i = 0; i < enviadosAhora; i++) {
         var id = "fi-" + uuidCorto(), lam = lamportActual();
         var buf = await cifrar(claveActual, { tipo: TIPO_FICHAS, deviceId: deviceId(), lamport: lam, payload: trozos[i].datos });
-        if (!ws || ws.readyState !== WebSocket.OPEN) return;
-        _fichasEnVuelo[id] = trozos[i].firmas;
-        ws.send(JSON.stringify({ k: "op", ack: 1, id: id, lam: lam, c: ab2b64(buf) }));
+        if (ws !== sock || sock.readyState !== WebSocket.OPEN) return;
+        _fichasEnVuelo[id] = { key: fk, firmas: trozos[i].firmas };
+        sock.send(JSON.stringify({ k: "op", ack: 1, id: id, lam: lam, c: ab2b64(buf) }));
       }
+      if (trozos.length > enviadosAhora) setTimeout(publicarFichas, 4000);
     } catch (_) {} // a quota or network refusal leaves the signatures unchanged: the next tick retries
   }
   function programarFichas() { clearTimeout(_fichasTimer); _fichasTimer = setTimeout(publicarFichas, 2000); }
   try {
     window.addEventListener("oc-catalogo-cambiado", programarFichas);
-    document.addEventListener("visibilitychange", function () { if (!document.hidden && yjsAtascado()) { pullDelRelay(); programarFichas(); } });
+    window.addEventListener("oc-login", function () { setTimeout(publicarFichas, 1500); });
+    document.addEventListener("visibilitychange", function () { if (!document.hidden && (yjsAtascado() || (ws && ws.relayLayer === "f123_relay_cupo_cf_v1"))) { pullDelRelay(); programarFichas(); } });
   } catch (_) {}
+  function clavePullRelay() {
+    var layer = (ws && (ws.pullRelayLayer || ws.relayLayer)) || "sin_capa";
+    // The old unsuffixed cursor may belong to any relay. Replay once per layer.
+    return "f123_relay_pull_" + salaIdActual + "_" + layer;
+  }
   function leerPull() {
     var p = null;
-    try { p = JSON.parse(localStorage.getItem("f123_relay_pull_" + salaIdActual) || "null"); } catch (_) {}
+    try { p = JSON.parse(localStorage.getItem(clavePullRelay()) || "null"); } catch (_) {}
     if (!p) return { rev: 0, seq: 0 };
     // rev 0 asks for the photo again: this device has not finished adopting one (the tab can close during its wait).
     var adoptada = false; try { adoptada = !!localStorage.getItem("f123_foto_adoptada_" + salaIdActual); } catch (_) {}
     return { rev: adoptada ? Number(p.rev) || 0 : 0, seq: Number(p.seq) || 0 };
   }
   function recibirPaginaPull(m) {
-    try { localStorage.setItem("f123_relay_pull_" + salaIdActual, JSON.stringify({ rev: m.rev, seq: m.seq })); } catch (_) {}
-    if (m.more && ++_paginasPull < 16) pullDelRelay(); else _paginasPull = 0; // shortcut: 16 pages per pull, the next pull continues from the saved seq
+    try { localStorage.setItem(clavePullRelay(), JSON.stringify({ rev: m.rev, seq: m.seq })); } catch (_) {}
+    if (m.more) {
+      if (++_paginasPull < 16) pullDelRelay();
+      else { _paginasPull = 0; setTimeout(pullDelRelay, 50); }
+    } else {
+      _paginasPull = 0;
+      try { if (ws && typeof ws.markRecovered === "function") ws.markRecovered(); } catch (_) {}
+    }
   }
   function pullDelRelay() {
     try {

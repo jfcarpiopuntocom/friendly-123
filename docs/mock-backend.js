@@ -5115,9 +5115,13 @@
         _observarRev(c.rev);
         const mio = clientes.find((x) => String(x.id) === String(c.id));
         if (mio) {
-          if (_revDomina(c.rev, mio.rev) !== true) return;
-          // La baja viaja como marca versionada: un catálogo viejo no la revive.
-          Object.assign(mio, c);
+          const yaBorrado = !!(mio.borrado || c.borrado);
+          if (_revDomina(c.rev, mio.rev) !== true) {
+            if (yaBorrado && !mio.borrado) { mio.borrado = true; actualizados++; }
+            return;
+          }
+          // Monotonic delete: a stale offline edit on another device cannot resurrect a deleted customer.
+          Object.assign(mio, c, yaBorrado ? { borrado: true } : {});
           actualizados++;
           return;
         }
@@ -6044,10 +6048,36 @@
         ..._pinsParaFoto(),
       };
     },
-    /* v651: changes that arrive by the durable op lane while Yjs is stuck. Same merge rule as the catalog: nothing is wiped. */
+    /* v651+v0.9.17: full materialized business slice for durable fichas migration/fallback (reuses _catalogoInterno(true) + _pinsParaFoto, including sales, commissions, movimientos & activity logs). */
+    estadoParaFichas() {
+      return Object.assign(_catalogoInterno(true), _pinsParaFoto());
+    },
+    /* v651: changes that arrive by the durable op lane while Yjs is stuck or migrating. Same add-only/LWW merge rule as the catalog: nothing is wiped. */
     aplicarFichas(f) {
       if (!f || typeof f !== "object") return false;
-      const r = aplicarCatalogo({ ubicaciones: Array.isArray(f.ubicaciones) ? f.ubicaciones : [], productos: Array.isArray(f.productos) ? f.productos : [], usuarios: Array.isArray(f.usuarios) ? f.usuarios : undefined, pinsRol: f.pinsRol || null }, null);
+      const optArr = (k) => (Array.isArray(f[k]) ? f[k] : undefined);
+      const r = aplicarCatalogo({
+        actividad: optArr("actividad"),
+        ubicaciones: Array.isArray(f.ubicaciones) ? f.ubicaciones : [],
+        productos: Array.isArray(f.productos) ? f.productos : [],
+        usuarios: optArr("usuarios"),
+        clientes: optArr("clientes"),
+        promotoras: optArr("promotoras"),
+        sucursales: optArr("sucursales"),
+        categorias: optArr("categorias"),
+        ajustes: optArr("ajustes"),
+        ventas: optArr("ventas"),
+        gastos: optArr("gastos"),
+        ajustesComision: optArr("ajustesComision"),
+        payouts: optArr("payouts"),
+        payoutConflicts: optArr("payoutConflicts"),
+        payoutQuarantine: optArr("payoutQuarantine"),
+        transferencias: optArr("transferencias"),
+        pinsRol: f.pinsRol || null
+      }, null);
+      if (Array.isArray(f.hechos) && f.hechos.length && window.AMG && window.AMG.Hechos && window.AMG.Hechos.importarRemoto) {
+        Promise.allSettled(f.hechos.map((h) => Promise.resolve().then(() => window.AMG.Hechos.importarRemoto(h)))).catch(() => {});
+      }
       _adoptarPinDeFoto(f);
       guardarEstadoLocal();
       return r;
@@ -9647,7 +9677,7 @@
       if (mCliDel && opts && opts.method === "DELETE") {
         const c = clientes.find((x) => x.id === mCliDel[1]);
         if (!c) return J({ error: "Customer not found." }, 404);
-        c.borrado = true; c.rev = _revNueva();
+        c.borrado = true; c.rev = _revNueva(); c.estadoRev = c.rev;
         mov("cliente-borrado", { cliente: c.nombre, codigo: c.codigo || "", quien: body.quien || "Sistema" });
         guardarEstadoLocal();
         avisarCatalogoCambiado();
@@ -10031,4 +10061,5 @@
     }
   };
   window.fetch = _fetchConCandado;
+  window.__ocMockBackendReady = true;
 })();

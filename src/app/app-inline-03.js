@@ -308,12 +308,20 @@ const _ocActSolaOn = true;
       layer.id = "f123-update-splash";
       layer.setAttribute("role", "status");
       layer.setAttribute("aria-live", "polite");
-      layer.style.cssText = "position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:#0F1923;color:#FFF8E8;padding:24px;text-align:center;font-family:system-ui,-apple-system,sans-serif";
+      layer.style.cssText = "position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:#0A0A0F;color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;color-scheme:only light;padding:24px;text-align:center;font-family:'Space Grotesk',Inter,system-ui,-apple-system,sans-serif";
       layer.innerHTML = '<style>@keyframes f123UpdatingSpin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){#f123-update-ring{animation:none!important}}</style>' +
-        '<div style="display:flex;align-items:center;flex-direction:column;gap:18px;max-width:320px">' +
-        '<div id="f123-update-ring" aria-hidden="true" style="width:52px;height:52px;border:5px solid rgba(239,195,26,.2);border-top-color:#EFC31A;border-radius:50%;animation:f123UpdatingSpin .85s linear infinite"></div>' +
-        '<div style="font-size:28px;line-height:1.15;font-weight:900;letter-spacing:.02em">Updating</div>' +
-        '<div style="font-size:14px;line-height:1.5;opacity:.88">Actualizando la aplicación…</div>' +
+        '<div style="width:100%;max-width:360px;background:#12131C;border:2px solid #262938;border-radius:18px;padding:30px 24px 28px;box-sizing:border-box;display:flex;align-items:center;flex-direction:column;gap:16px">' +
+        '<div aria-hidden="true" style="display:flex;gap:5px;width:96px;height:5px">' +
+        '<span style="flex:1;background:#00C87A;border-radius:99px"></span>' +
+        '<span style="flex:1;background:#FFC700;border-radius:99px"></span>' +
+        '<span style="flex:1;background:#FF7A2F;border-radius:99px"></span>' +
+        '<span style="flex:1;background:#FF3B5C;border-radius:99px"></span>' +
+        '<span style="flex:1;background:#38BDF8;border-radius:99px"></span>' +
+        '</div>' +
+        '<div style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#00C87A;-webkit-text-fill-color:#00C87A">friendly-123</div>' +
+        '<div id="f123-update-ring" aria-hidden="true" style="width:48px;height:48px;border:4px solid #232634;border-top-color:#00C87A;border-right-color:#FFC700;border-radius:50%;animation:f123UpdatingSpin .85s linear infinite"></div>' +
+        '<div style="font-size:28px;line-height:1.12;font-weight:700;letter-spacing:-.02em;color:#FFFFFF;-webkit-text-fill-color:#FFFFFF">Updating</div>' +
+        '<div style="font-size:15px;line-height:1.45;font-weight:500;color:#CBD5E1;-webkit-text-fill-color:#CBD5E1">Actualizando la aplicación…</div>' +
         '</div>';
       root.appendChild(layer);
       return layer;
