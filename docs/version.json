@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.02",
+  "version": "v0.9.03",
   "fecha": "2026-11-22",
-  "changelog": "v0.9.02 C224: buzon cifrado 2.0 en Cloudflare (friendly123-relay-privado) primero en la cascada con autorizacion por licencia y rol (dueno/admin/empleado); historial privado completo (dinero, ventas, comisiones, clientes) en aparatos nuevos.",
+  "changelog": "v0.9.03 C225: checkpoints completos comprimidos (tag 7 >768 KiB), ckptFrameBytes y opsDoc en vivo sobre friendly123-relay-privado (dinero, comisiones, movimientos, ventas y clientes); ventana corrida de 24h en auto-respaldo sin error WebKitBlobResource en iPhone.",
   "requerida": false,
-  "shell": "f123-shell-v902",
+  "shell": "f123-shell-v903",
   "apagar": [],
-  "releaseName": "v0.9.02",
-  "cacheGeneration": "golden438"
+  "releaseName": "v0.9.03",
+  "cacheGeneration": "golden439"
 }

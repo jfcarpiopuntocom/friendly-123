@@ -377,3 +377,24 @@ test('retains every encrypted checkpoint and restores current history on a cold 
   assert.deepEqual(createRelayStore(storage).pull({ rev: 0, seq: 0 }), cold);
   assert.deepEqual(storage.sql.exec('SELECT rev FROM relay_ckpt_meta ORDER BY rev').toArray(), savedRevisions);
 });
+
+test('C225 full-store (>768 KiB) checkpoint & opsDoc contract on f123_relay_cupo_cf_v1', () => {
+  const sy = fs.readFileSync(path.join(ROOT, 'docs', 'sync-yjs.js'), 'utf8');
+  const rs = fs.readFileSync(path.join(ROOT, 'docs', 'relay-selector.js'), 'utf8');
+  const bk = fs.readFileSync(path.join(ROOT, 'docs', 'backup-scheduler.js'), 'utf8');
+
+  // 1. relay-selector must expose ckptFrameBytes on window.F123Relay so >192KiB/512KiB checkpoints are not throttled
+  assert.match(rs, /window\.F123Relay\s*=\s*\{\s*ckptFrameBytes:/);
+
+  // 2. hacerCkpt gzip gate (tag 7) and drenarDurable soloFb filter must allow f123_relay_cupo_cf_v1
+  assert.match(sy, /var capaFb = ws\.relayLayer === "f123_relay_cupo_fb_v1" \|\| ws\.relayLayer === "f123_relay_cupo_cf_v1";/);
+  assert.match(sy, /canal\.ws\.relayLayer !== "f123_relay_cupo_fb_v1" && canal\.ws\.relayLayer !== "f123_relay_cupo_cf_v1"/);
+
+  // 3. Both API.doc and API.opsDoc must continue syncing live updates on f123_relay_cupo_cf_v1 when 2.0 cutover is active
+  assert.match(sy, /var cfPrivadoActivo = !!\(API\.canal && API\.canal\.ws && API\.canal\.ws\.relayLayer === "f123_relay_cupo_cf_v1"\);/);
+  assert.match(sy, /var cfOpsActivo = !!\(API\.opsCanal && API\.opsCanal\.ws && API\.opsCanal\.ws\.relayLayer === "f123_relay_cupo_cf_v1"\);/);
+
+  // 4. backup-scheduler enforces 24-hour rolling window (86,400,000 ms) across midnight and stamps before gesture
+  assert.match(bk, /const AUTOEXPORT_INTERVAL_MS = 24 \* 60 \* 60 \* 1000;/);
+  assert.match(bk, /localStorage\.setItem\(LS_AUTOEXPORT, String\(now\)\);\s*descargarArchivo\(info\.texto, info\.nombre, true\);/);
+});

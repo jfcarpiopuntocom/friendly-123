@@ -162,16 +162,16 @@
   // iPhone/iPad the download attribute is ignored (opens a tab) and some
   // locked-down webviews throw. try/catch + fallback to a tab: we never leave
   // the owner without their file.
-  function descargarArchivo(texto, nombre) {
+  function descargarArchivo(texto, nombre, soloAncla) {
     const blob = new Blob([texto], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = nombre;
     document.body.appendChild(a);
-    try { a.click(); } catch (_) { try { window.open(url, "_blank"); } catch (_) {} }
+    try { a.click(); } catch (_) { if (!soloAncla) { try { window.open(url, "_blank"); } catch (_) {} } }
     a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    setTimeout(() => URL.revokeObjectURL(url), 300_000);
   }
 
   function cuerpoEmail(nombreArchivo, humano) {
@@ -649,6 +649,7 @@
      Para APAGARLO: borrar el addEventListener("oc-login", ...) de abajo.
      ========================================================================= */
   const LS_AUTOEXPORT = "f123_autoexport_dia_v1";
+  const AUTOEXPORT_INTERVAL_MS = 24 * 60 * 60 * 1000;
   function diaLocal(d) {
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
@@ -670,8 +671,17 @@
   // el primer toque: en Safari iPhone una descarga lanzada tras un await ya no
   // cuenta como gesto del usuario y se pierde.
   let _exportPreparando = false;
-  function yaExportadoHoy() {
-    try { return localStorage.getItem(LS_AUTOEXPORT) === diaLocal(new Date()); } catch (_) { return true; }
+  function yaExportadoHoy(ahoraMs) {
+    try {
+      const now = Number.isFinite(ahoraMs) ? ahoraMs : Date.now();
+      const raw = localStorage.getItem(LS_AUTOEXPORT);
+      if (!raw) return false;
+      if (/^\d+$/.test(raw)) {
+        const ts = parseInt(raw, 10);
+        return ts > 0 && (now - ts) < AUTOEXPORT_INTERVAL_MS;
+      }
+      return raw === diaLocal(new Date(now));
+    } catch (_) { return true; }
   }
   async function prepararExportLocal() {
     if (_exportPreparando || yaExportadoHoy()) return;
@@ -681,10 +691,12 @@
     catch (_) { _exportPreparando = false; return; } // sin aviso: se reintenta en el proximo login
     document.addEventListener("pointerdown", function () {
       _exportPreparando = false;
-      if (yaExportadoHoy()) return;
+      const now = Date.now();
+      if (yaExportadoHoy(now)) return;
       try {
-        descargarArchivo(info.texto, info.nombre);
-        localStorage.setItem(LS_AUTOEXPORT, diaLocal(new Date()));
+        // Record the 24h stamp BEFORE triggering the download so iOS Safari cannot re-trigger in the same session
+        localStorage.setItem(LS_AUTOEXPORT, String(now));
+        descargarArchivo(info.texto, info.nombre, true);
       } catch (_) {}
     }, { once: true, capture: true });
   }
@@ -698,4 +710,5 @@
     } catch (_) {}
   });
   window.OCBackupScheduler._construirExportLocal = construirExportLocal;
+  window.OCBackupScheduler._yaExportadoHoy = yaExportadoHoy;
 })();
