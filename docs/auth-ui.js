@@ -756,6 +756,20 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       _purgeBtn._ocWired = true;
       _purgeBtn.addEventListener("click", async function () {
         if (window.__f123PurgeEnCurso) return;
+        // C210: leave the stale app shell BEFORE touching registrations or caches.
+        // repair.html is intentionally outside SHELL: the OLD worker fetches it
+        // network-first, so this works even when old auth-ui/ui2 remain cached.
+        // A single app bootstrap occurs only on the return from repair.html.
+        try {
+          window.__f123PurgeEnCurso = true;
+          _purgeBtn.disabled = true;
+          location.assign(new URL("./repair.html?from=pin&_r=" + Date.now(), location.href).href);
+          return;
+        } catch (eStandalone) {
+          // Old-browser fallback keeps the previous in-place repair available.
+          window.__f123PurgeEnCurso = false;
+          _purgeBtn.disabled = false;
+        }
         var log = document.getElementById("oc-purge-log");
         var linea = function (txt) {
           if (!log) return;
