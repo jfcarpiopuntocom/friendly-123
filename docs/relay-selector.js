@@ -266,7 +266,7 @@
          cuando la conexion se sostiene 30 s. Antes se reiniciaba al ABRIR: si Firebase acepta la conexion y luego
          rechaza la escritura, el contador volvia a 0 cada vez y el bucle quedaba fijo en 5 s gastando cupo. */
       var tEstable = setTimeout(function () {
-        try { var cc = leer(key); if (cc.rechazosFb) { cc.rechazosFb = 0; guardar(key, cc); } } catch (_) {}
+        try { var cc = leer(key); if (cc.rechazosFb || cc.fallosRed) { cc.rechazosFb = 0; cc.fallosRed = 0; guardar(key, cc); } } catch (_) {}
       }, 30000);
       ws.addEventListener("close", function () { clearTimeout(tEstable); });
     });
@@ -318,7 +318,14 @@
          4 intentos extra a Firebase en el primer minuto; nada nuevo hacia Cloudflare. PARA REVERTIR: volver a 60000. */
       var pausaFb = Math.min(60000, 5000 * Math.pow(2, Math.min(c.rechazosFb || 0, 4)));
       if (capa.relay === fb && !red) c.rechazosFb = (c.rechazosFb || 0) + 1;
-      c.pausaHasta = Date.now() + (red ? PAUSA_RED_MS : (capa.relay === fb ? pausaFb : PAUSA_MS)); guardar(key, c);
+      /* C236 (JFC 23 nov 2026: «se crashea sola la app! incluso dejandola en la pagina de los PINs!!! SAFARI!!!»). Medido en vivo:
+         Supabase sin cupo (402) se cerraba sin codigo, contaba como corte de red y se reintentaba cada 5 s para siempre; cada vuelta
+         volvia a bajar de Firebase la lista entera (24 veces, 21 MB en 90 s) hasta que iOS mataba la pestana. Ahora el corte de red
+         tambien espera de forma creciente: 5, 10, 20, 40 s... hasta PAUSA_MS (15 min). El contador vuelve a 0 cuando la conexion
+         se sostiene 30 s (mismo reinicio que rechazosFb). PARA REVERTIR: usar PAUSA_RED_MS fijo otra vez. */
+      var pausaRed = Math.min(PAUSA_MS, PAUSA_RED_MS * Math.pow(2, Math.min(c.fallosRed || 0, 8)));
+      if (red) c.fallosRed = (c.fallosRed || 0) + 1;
+      c.pausaHasta = Date.now() + (red ? pausaRed : (capa.relay === fb ? pausaFb : PAUSA_MS)); guardar(key, c);
     });
     var enviar = ws.send.bind(ws);
     ws.send = function (v) {
