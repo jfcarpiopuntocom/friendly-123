@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light only">
+<title>Reparar actualización · friendly-123</title>
+<!-- C210: stand-alone recovery entry. Deliberately NOT a SHELL resource.
+     The old worker handles this URL network-first, even when it still caches
+     an obsolete index.html and PIN scripts. No app JS, CSS or data is loaded. -->
+<style>
+  :root{color-scheme:light;font-family:system-ui,-apple-system,sans-serif}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:24px;background:#0F1923;color:#0F1923}
+  main{width:min(100%,440px);background:#FFF8E8;border:3px solid #5294AC;border-radius:18px;text-align:center;padding:30px 22px}
+  h1{margin:0 0 12px;font-size:27px;color:#0F1923}
+  p{font-size:16px;line-height:1.5}
+  button{cursor:pointer;border:2px solid #0F1923;border-radius:10px;min-height:52px;padding:10px 22px;background:#EFC31A;color:#0F1923;font:700 17px system-ui,-apple-system,sans-serif}
+  button:disabled{opacity:.75;cursor:wait}
+  #status{min-height:48px;margin:18px 0 0;font-size:16px;line-height:1.5}
+  #spinner{width:44px;height:44px;border-radius:50%;border:5px solid #E9DFB0;border-top-color:#EFC31A;animation:spin .8s linear infinite;margin:14px auto;display:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media(prefers-reduced-motion:reduce){#spinner{animation:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>friendly-123</h1>
+  <p>Reparación de actualización</p>
+  <p>Renueva los archivos de la aplicación y conserva tus datos, licencias y PIN.</p>
+  <button type="button" id="repair">Reparar y abrir</button>
+  <div id="spinner" aria-hidden="true"></div>
+  <p id="status" role="status" aria-live="polite">Listo para reparar los archivos de la aplicación.</p>
+</main>
+<script id="f123-repair-standalone">
+(function(){
+  "use strict";
+  var button=document.getElementById("repair"),status=document.getElementById("status");
+  var spinner=document.getElementById("spinner"),running=false;
+  function say(message){status.textContent=message;}
+  function timeout(promise,ms){
+    var timer;
+    return Promise.race([Promise.resolve(promise),new Promise(function(_,reject){
+      timer=setTimeout(function(){reject(new Error("Tiempo de espera agotado"));},ms);
+    })]).finally(function(){clearTimeout(timer);});
+  }
+  function appScope(scope,base){
+    try{
+      var parsed=new URL(scope);
+      return parsed.origin===location.origin &&
+        [base.pathname,base.pathname+"next/",base.pathname+"previo/"].includes(parsed.pathname);
+    }catch(_){return false;}
+  }
+  function appCache(name){
+    return /^f123-shell-v\d+(?:-golden\d+)?(?:-(?:next|previo))?$/.test(String(name||""));
+  }
+  async function repair(){
+    if(running)return;
+    running=true;button.disabled=true;spinner.style.display="block";
+    try{
+      say("Comprobando la última versión publicada…");
+      var response=await timeout(fetch("./version.json?repair="+Date.now(),{cache:"no-store"}),7000);
+      if(!response.ok)throw new Error("La versión pública respondió HTTP "+response.status);
+      var version=await timeout(response.json(),4000);
+      if(!version||!/^f123-shell-v\d+$/.test(String(version.shell||"")))throw new Error("Versión pública inválida");
+      say("Actualizando archivos. Tu cuaderno y tus PIN permanecen intactos…");
+      var base=new URL("./",location.href);
+      if(navigator.serviceWorker&&typeof navigator.serviceWorker.getRegistrations==="function"){
+        var registrations=await timeout(navigator.serviceWorker.getRegistrations(),6000);
+        for(var i=0;i<registrations.length;i++){
+          if(appScope(registrations[i].scope,base)){
+            var removed=await timeout(registrations[i].unregister(),6000);
+            if(removed===false)throw new Error("El navegador no liberó el Service Worker anterior");
+          }
+        }
+      }
+      if(window.caches){
+        var names=await timeout(caches.keys(),6000);
+        for(var j=0;j<names.length;j++){
+          if(appCache(names[j])){
+            var deleted=await timeout(caches.delete(names[j]),6000);
+            if(deleted===false)throw new Error("No se pudo retirar un caché obsoleto");
+          }
+        }
+      }
+      // This is the ONLY navigation issued by the stand-alone recovery.
+      // ?_purge bypasses the OLD worker's cache-first shell-asset branch.
+      // The destination uses the existing C209 reentry guard, if present.
+      say("Abriendo la versión "+String(version.version||"nueva")+"…");
+      location.replace(base.pathname+"?_purge="+Date.now());
+    }catch(error){
+      say("La reparación quedó incompleta: "+String(error&&error.message||error)+". Reintentar.");
+      button.disabled=false;spinner.style.display="none";running=false;
+    }
+  }
+  button.addEventListener("click",repair);
+  // The gate button already received the user's click. One automatic run
+  // prevents an extra confirmation and a second application bootstrap.
+  if(new URL(location.href).searchParams.get("from")==="pin")repair();
+})();
+</script>
+</body>
+</html>
