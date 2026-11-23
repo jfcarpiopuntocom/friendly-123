@@ -1,6 +1,5 @@
 /* friendly-123 C100 — Comisiones por artista/comisionista, SOLO PRESENTACION.
-   Suma balances verificados de /api/liquidaciones por payeeId estable.
-   No reconstruye ventas, no modifica pagos ni saldos del ledger. */
+   Agrupa balances mensuales por payeeId y devengados históricos del historial de comisiones. */
 (function (root) {
   'use strict';
   function cents(n) {
@@ -180,46 +179,33 @@
   function groupAllDates(sales) {
     var H = root.OCCommissionHistory, lang = es() ? 'es' : 'en';
     var from = String(root._ocComDesde || ''), to = String(root._ocComHasta || '');
-    if (from && to && from > to) return { allDates: true, invalidRange: true, people: [], unverified: [] };
-    var fIn = root._ocComFiltros || {};
-    var filtros = {
-      comisionista: Array.isArray(fIn.comisionista) ? fIn.comisionista : [],
-      producto: Array.isArray(fIn.producto) ? fIn.producto : [],
-      percha: Array.isArray(fIn.percha) ? fIn.percha : [],
-      cliente: Array.isArray(fIn.cliente) ? fIn.cliente : []
-    };
-    var filtered = H.filterSales({ sales: sales, from: from, to: to, filtros: filtros });
-    var assocSet = filtros.comisionista.length ? new Set(filtros.comisionista.map(String)) : null;
-    var seen = new Set(), byPerson = new Map(), byRack = new Map();
-    filtered.forEach(function (v) {
-      if (!v || v.anulada || v.cancelled || v.borrado) return;
-      var rid = v.id != null ? String(v.id) : '';
-      if (rid) { if (seen.has(rid)) return; seen.add(rid); }
-      var rackId = String(v.ubicacionId || v.ubicacionNombre || 'rack');
-      var rackName = String(v.ubicacionNombre || rackId || tx('Sin percha', 'Unnamed rack'));
-      var shares = typeof H.saleAssociates === 'function'
-        ? H.saleAssociates(v, lang).filter(function (a) { return !assocSet || assocSet.has(a.id); }).map(function (a) {
-            if (a.commissionCents !== null) return { id: a.id, name: a.name, earnedCents: a.commissionCents };
-            var raw = v.comisionAsociado != null ? Number(v.comisionAsociado) : (v.split ? Number(v.split.montoComisionSocio) : (v.noCommission === true ? 0 : NaN));
-            return { id: a.id, name: a.name, earnedCents: Number.isFinite(raw) ? Math.round(raw * 100) : null };
-          })
-        : [];
-      shares.forEach(function (s) {
-        if (!s.id) return;
-        var p = byPerson.get(s.id);
-        if (!p) { p = { id: s.id, name: s.name, total: { earned: 0, paid: null, due: null, held: null }, deals: [], needsReview: false }; byPerson.set(s.id, p); }
-        p.total.earned = add(p.total.earned, s.earnedCents);
-        var dk = JSON.stringify([s.id, rackId]);
-        var d = byRack.get(dk);
-        if (!d) {
-          d = { rackId: rackId, rackName: rackName, name: s.name, amount: { earned: 0, paid: null, due: null, held: null }, percentage: null, review: false, payable: false };
-          byRack.set(dk, d); p.deals.push(d);
-        }
-        d.amount.earned = add(d.amount.earned, s.earnedCents);
-      });
+    var view = H.project({
+      sales: sales, from: from, to: to, filtros: root._ocComFiltros,
+      group: 'comisionista', lang: lang, associateDetails: true
+    });
+    if (view.invalidRange) return { allDates: true, invalidRange: true, people: [], unverified: [] };
+    var byPerson = new Map(), byRack = new Map();
+    view.rows.forEach(function (row) {
+      var s = row.associate;
+      if (!s) return;
+      var p = byPerson.get(s.id);
+      if (!p) {
+        p = { id: s.id, name: s.name, total: { earned: 0, paid: null, due: null, held: null }, deals: [], needsReview: false };
+        byPerson.set(s.id, p);
+      }
+      p.total.earned = add(p.total.earned, s.commissionCents);
+      var dk = JSON.stringify([s.id, s.rackId]);
+      var d = byRack.get(dk);
+      if (!d) {
+        d = { rackId: s.rackId, rackName: s.rackName, amount: { earned: 0, paid: null, due: null, held: null }, percentage: null, payable: false };
+        byRack.set(dk, d);
+        p.deals.push(d);
+      }
+      d.amount.earned = add(d.amount.earned, s.commissionCents);
     });
     return {
       allDates: true,
+      receiptConflicts: view.totals.conflicts,
       people: Array.from(byPerson.values()).sort(function (a, b) { return a.name.localeCompare(b.name) || a.id.localeCompare(b.id); }),
       unverified: []
     };
@@ -247,6 +233,12 @@
       html += '<p style="font-size:13px;color:var(--ink-soft,#334E68);margin:0 0 10px;">' +
         esc(tx('Comisiones devengadas seg\u00fan los filtros activos. Para registrar pagos, elige un mes en Per\u00edodo.','Earned commissions matching active filters. Select a month in Period to record payments.')) + '</p>';
     }
+    if (state.grouped.receiptConflicts) {
+      html += '<p role="alert">' + esc(tx('Hay recibos con importes por verificar.', 'Some receipts have amounts that need review.')) + '</p>';
+    }
+    function earnedMoney(value) {
+      return state.grouped.allDates && value === null ? tx('Por verificar','Needs review') : money(value);
+    }
     groups.forEach(function(p) {
       html += '<article class="tag-card" data-cm-person-id="' + esc(p.id) +
         '" style="text-align:left;margin:0 0 12px;padding:14px 16px;">' +
@@ -256,7 +248,7 @@
         [[tx('Devengado','Earned'),'earned'],[tx('Pagado','Paid'),'paid'],
          [tx('Retenido','On hold'),'held'],[tx('Pendiente','Still due'),'due']].map(function(x) {
            return '<div><div class="rotulo">'+esc(x[0])+'</div><div class="cifra">'+
-             esc(money(p.total[x[1]]))+'</div></div>';
+             esc(x[1] === 'earned' ? earnedMoney(p.total.earned) : money(p.total[x[1]]))+'</div></div>';
          }).join('') + '</div>' +
         '<details><summary style="min-height:44px;cursor:pointer;font-size:14px;font-weight:700;">' +
         esc(tx('Ver tratos y perchas','Show deals and racks')) + ' (' + p.deals.length + ')</summary>';
@@ -265,7 +257,7 @@
           '<strong>' + esc(d.rackName) + '</strong>' +
           (d.percentage === null ? '' : ' <span style="font-size:13px;">(' + esc(d.percentage) + '%)</span>') +
           '<div style="font-size:14px;">' +
-          esc(tx('Devengado','Earned')) + ': ' + esc(money(d.amount.earned)) + ' \u00b7 ' +
+          esc(tx('Devengado','Earned')) + ': ' + esc(earnedMoney(d.amount.earned)) + ' \u00b7 ' +
           esc(tx('Pagado','Paid')) + ': ' + esc(money(d.amount.paid)) + ' \u00b7 ' +
           esc(tx('Pendiente','Still due')) + ': ' + esc(money(d.amount.due)) + '</div>' +
           (d.payable ? '<button type="button" class="ir" data-cm-person-pay="' + esc(p.id) +
@@ -286,7 +278,7 @@
     state.period=month; state.grouped=null; state.loading=true;
     setMode(); render();
     try {
-      if (!month && root.OCCommissionHistory && typeof root.OCCommissionHistory.filterSales === 'function') {
+      if (!month && root.OCCommissionHistory && typeof root.OCCommissionHistory.project === 'function') {
         var sales = Array.isArray(root._ocComHistorySales) ? root._ocComHistorySales : null;
         if (!sales) {
           var apiBase = typeof root.API === 'string' && root.API ? root.API : '/api';

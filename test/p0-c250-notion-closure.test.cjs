@@ -47,6 +47,16 @@ test('split commission associate filter isolates only matching payee share', () 
   assert.deepEqual(out.groups.map((g) => g.id), ['a-ana']);
 });
 
+test('historical associates with missing names retain their distinct identifiers', () => {
+  const sales = ['older-ana', 'older-beto'].map((id) => ({
+    id, promotoraId: id, ubicacionId: 'r1', cantidad: 1, precioUnit: 20, comisionAsociado: 4
+  }));
+  const { rows } = core.project({ sales, group: 'comisionista', associateDetails: true });
+  assert.deepEqual(rows.map(({ associate }) => [associate.id, associate.name, associate.commissionCents]), [
+    ['older-ana', 'older-ana', 400], ['older-beto', 'older-beto', 400]
+  ]);
+});
+
 test('WebKit: 2-device monotonic customer delete + $20 paid on $15 item debt + Paid/Credit label', async () => {
   const browser = await webkit.launch({ headless: true });
   try {
@@ -150,6 +160,25 @@ test('WebKit: All-dates By artist / associate Persona dropdown & cumulative filt
     });
     const opts = await page.locator('[data-commissions-person-select] option').allTextContents();
     assert.ok(opts.some((x) => x.includes('Ana')) && opts.some((x) => x.includes('Beto')), 'Persona lists all historical associates');
+
+    await page.evaluate(() => {
+      window._ocComHistorySales.push({
+        id: 'invalid-split', fechaLocal: '2026-09-11', ubicacionId: 'r1', ubicacionNombre: 'Rack 1',
+        cantidad: 1, precioUnit: 50, comisionAsociado: 10,
+        reparto: [
+          { promotoraId: 'a-ana', nombre: 'Ana', monto: 8 },
+          { promotoraId: 'a-beto', nombre: 'Beto', monto: 7 }
+        ]
+      });
+      window.F123CommissionsByPerson.refresh();
+    });
+    const people = page.locator('#comm-panel-person [data-cm-person-id]');
+    for (const id of ['a-ana', 'a-beto']) {
+      const person = people.and(page.locator('[data-cm-person-id="' + id + '"]'));
+      assert.match(await person.locator('.cifra').first().innerText(), /Needs review|Por verificar/);
+      await person.locator('summary').click();
+      assert.match(await person.locator('[data-cm-person-rack="r1"]').innerText(), /Needs review|Por verificar/);
+    }
 
     // Narrow date range to Nov only -> Ana drops from $30 ($20+$10) to $10, Persona STILL has Ana!
     await page.evaluate(() => {

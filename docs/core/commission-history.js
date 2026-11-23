@@ -174,6 +174,7 @@
     if(from&&to&&from>to)return {group:group,from:from,to:to,lang:lang,zone:zone,
       invalidRange:true,rows:[],totals:null,groups:[]};
     var all=Array.isArray(input.sales)?input.sales:[];
+    var associateDetails=group==="comisionista"&&input.associateDetails===true;
     var assocSel=(input.filtros&&Array.isArray(input.filtros.comisionista)&&input.filtros.comisionista.length)
       ?input.filtros.comisionista.map(String):null;
     var rows=[],tot={count:0,cancelled:0,conflicts:0,splitConflicts:0,customerConflicts:0,associateConflicts:0,gross:0,commission:0,unknownGross:0,unknownCommission:0};
@@ -218,8 +219,8 @@
       var commission=cents(commissionRaw);
       // Match the sale's recorded commission to its explicit payout shares.
       // A mismatched/missing amount must NOT display exact money in either UI.
-      var splitMismatch=false;
-      if(commission!==null&&Array.isArray(v.reparto)&&v.reparto.length){
+      var splitMismatch=false,hasShares=Array.isArray(v.reparto)&&v.reparto.length>0;
+      if(commission!==null&&hasShares){
         var shares=0;
         for(var si=0;si<v.reparto.length;si++){
           var part=cents(finite(v.reparto[si]&&v.reparto[si].monto));
@@ -229,7 +230,7 @@
         if(shares!==commission)splitMismatch=true;
       }
       if(splitMismatch){tot.splitConflicts++;commission=null;}
-      if(assocSel&&!splitMismatch&&Array.isArray(v.reparto)&&v.reparto.length&&!(receiptId&&conflictingAssociateIds.has(receiptId))){
+      if(assocSel&&!splitMismatch&&hasShares&&!(receiptId&&conflictingAssociateIds.has(receiptId))){
         var matchedShare=0,shareBad=false;
         _saleAssociates(v,lang).forEach(function(a){
           if(assocSel.indexOf(a.id)<0)return;
@@ -263,13 +264,14 @@
       // Attribute only the money explicitly assigned to each, never give both
       // associates the entire sale or invent a beneficiary for an unknown split.
       var targets=[{id:id||label,label:label,commission:commission,gross:gross}];
-      if(group==="comisionista"&&receiptId&&conflictingAssociateIds.has(receiptId)){
+      var attributionConflict=group==="comisionista"&&receiptId&&conflictingAssociateIds.has(receiptId);
+      if(attributionConflict){
         tot.associateConflicts++;
         targets=[{id:"__f123_comisionista_por_verificar__",
           label:lang==="es"?"Comisionista por verificar":"Associate needs review",
           commission:commission,
-          gross:Array.isArray(v.reparto)&&v.reparto.length?null:gross}];
-      }else if(group==="comisionista"&&Array.isArray(v.reparto)&&v.reparto.length>0){
+          gross:hasShares?null:gross}];
+      }else if(group==="comisionista"&&hasShares){
         targets=_saleAssociates(v,lang).filter(function(a){
           return !assocSel||assocSel.indexOf(a.id)>=0;
         }).map(function(a){
@@ -285,7 +287,14 @@
         g.count++;
         accumulate(g,"gross","unknownGross",target.gross);
         accumulate(g,"commission","unknownCommission",target.commission);
-        rows.push({id:String(v.id||""),day:day,group:k,gross:money(target.gross),commission:money(target.commission)});
+        var row={id:String(v.id||""),day:day,group:k,gross:money(target.gross),commission:money(target.commission)};
+        if(associateDetails&&(id||attributionConflict||hasShares)){
+          var rackId=String(v.ubicacionId||v.ubicacionNombre||"rack");
+          var name=attributionConflict||hasShares?target.label:safeName(v.asociadoNombre,id);
+          row.associate={id:k,name:name,rackId:rackId,rackName:String(v.ubicacionNombre||rackId),
+            commissionCents:attributionConflict?null:target.commission};
+        }
+        rows.push(row);
       });
     });
     tot.gross=money(tot.gross);tot.commission=money(tot.commission);
@@ -332,5 +341,5 @@
       +(body||'<p style="font-size:15px;">'+(es?"No hay ventas en las fechas elegidas.":"No sales in the selected dates.")+'</p>')))
       +'</section>';
   }
-  return {views:views,day:keyDay,saleAssociates:_saleAssociates,project:project,render:render,facets:facets,filterSales:filterSales};
+  return {views:views,day:keyDay,project:project,render:render,facets:facets,filterSales:filterSales};
 });
