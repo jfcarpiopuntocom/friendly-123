@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>Updating · friendly-123</title>
+<style>
+html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,Arial,sans-serif;background:#0F1923;color:#FFF8E8}
+body{display:flex;align-items:center;justify-content:center;min-height:100svh;text-align:center;padding:18px;box-sizing:border-box}
+main{max-width:340px}
+.spinner{width:52px;height:52px;margin:0 auto 20px;border-radius:50%;border:5px solid rgba(239,195,26,.2);border-top-color:#EFC31A;animation:spin 1s linear infinite}
+h1{font-size:28px;margin:0 0 10px}p{line-height:1.5;margin:0 0 12px}
+a[hidden]{display:none}a{display:inline-block;padding:11px 20px;color:#0F1923;background:#EFC31A;border-radius:7px;font-weight:800;text-decoration:none}
+@keyframes spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.spinner{animation:none}}
+</style>
+</head>
+<body><main><div class="spinner" aria-hidden="true"></div><h1>Updating</h1><p id="status" role="status" aria-live="polite">Recuperando la versión vigente de friendly-123…</p><p><a id="manual" href="./?_purge=1" hidden>Continuar a friendly-123</a></p></main>
+<script>
+(function(){
+  "use strict";
+  var target="./?_purge="+Date.now();
+  var manual=document.getElementById("manual"),status=document.getElementById("status");
+  manual.href=target;
+  function deadline(p,ms){return Promise.race([p,new Promise(function(_,reject){setTimeout(function(){reject(new Error("timeout"));},ms);})]);}
+  function belongs(scope){
+    try{
+      var u=new URL(scope,location.href),base=new URL("./",location.href).pathname;
+      return u.origin===location.origin&&(u.pathname===base||u.pathname===base+"next/"||u.pathname===base+"previo/");
+    }catch(_){return false;}
+  }
+  async function releaseOldShell(){
+    // Verify the newest shell is reachable before retiring any offline copy.
+    const response=await deadline(fetch("./version.json?rescue="+Date.now(),{cache:"no-store"}),6000);
+    if(!response || !response.ok)throw new Error("sin red");
+    const version=await deadline(response.json(),5000);
+    if(!version || !version.shell)throw new Error("versión no comprobada");
+    if("serviceWorker" in navigator){
+      try{
+        var regs=await deadline(navigator.serviceWorker.getRegistrations(),5000);
+        for(var i=0;i<regs.length;i++){
+          if(belongs(regs[i].scope))try{await deadline(regs[i].unregister(),5000);}catch(_){}
+        }
+      }catch(_){}
+    }
+    if("caches" in window){
+      try{
+        var names=await deadline(caches.keys(),5000);
+        for(var j=0;j<names.length;j++){
+          if(/^f123-shell-v\d+(?:-|$)/.test(names[j]))
+            try{await deadline(caches.delete(names[j]),5000);}catch(_){}
+        }
+      }catch(_){}
+    }
+  }
+  releaseOldShell().then(function(){
+    status.textContent="Abriendo la versión actualizada…";
+    location.replace(target);
+  },function(){
+    status.textContent="Se necesita conexión para comprobar la nueva versión.";
+    manual.textContent="Reintentar";
+    manual.href="./reenganchar.html?retry="+Date.now();
+    manual.hidden=false;
+  });
+  // A hung WebKit operation leaves a retry control, not an automatic second navigation.
+  setTimeout(function(){
+    if(location.pathname.endsWith("/reenganchar.html")){
+      manual.textContent="Reintentar";
+      manual.href="./reenganchar.html?retry="+Date.now();
+      manual.hidden=false;
+    }
+  },16000);
+})();
+</script>
+</body></html>
