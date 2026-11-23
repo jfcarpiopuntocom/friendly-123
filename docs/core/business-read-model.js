@@ -13,10 +13,19 @@
  function expiry(p){if(!p||!p.perecible)return null;const date=String(p.fechaCaducidad||''),m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(date);if(!m)return null;
   const d=new Date(Date.UTC(Number(m[1]),Number(m[2])-1,Number(m[3])));return d.getUTCFullYear()===Number(m[1])&&d.getUTCMonth()===Number(m[2])-1&&d.getUTCDate()===Number(m[3])?date:null;
  }
+ // Constructing Intl.DateTimeFormat once for EACH historical sale during
+ // Today's dashboard costs CPU and allocations on Chromium/Opera Air.
+ // Reuse at most eight formatters; changing zone retains exact date semantics.
+ const dayFormatters=new Map();
  function day(value,zone){
   if(/^\d{4}-\d{2}-\d{2}$/.test(String(value||'')))return expiry({perecible:true,fechaCaducidad:value})||'';
   const ms=Date.parse(value);if(!Number.isFinite(ms))return '';
-  try{const parts=new Intl.DateTimeFormat('en-CA',{timeZone:zone||'America/Guayaquil',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(ms));const get=k=>parts.find(p=>p.type===k).value;return get('year')+'-'+get('month')+'-'+get('day');}catch(_){return '';}
+  try{
+   const tz=zone||'America/Guayaquil';let formatter=dayFormatters.get(tz);
+   if(!formatter){formatter=new Intl.DateTimeFormat('en-CA',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'});if(dayFormatters.size>=8)dayFormatters.clear();dayFormatters.set(tz,formatter);}
+   const parts=formatter.formatToParts(new Date(ms));const get=k=>parts.find(p=>p.type===k).value;
+   return get('year')+'-'+get('month')+'-'+get('day');
+  }catch(_){return '';}
  }
  function margin(p){const price=finite(p&&p.precio),cost=finite(p&&p.costo);return price===null||cost===null?null:Math.round((price-cost)*100)/100;}
  function quantity(v){const n=finite(v);return n!==null&&n>0?n:null;}
@@ -129,9 +138,27 @@
   }
   const stable=v=>v&&typeof v==='object'?Array.isArray(v)?'['+v.map(stable).join(',')+']':'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+stable(v[k])).join(',')+'}':JSON.stringify(v);
   function unique(records,kind,relevant){
+   // C198: ordinary journals have unique op/receipt IDs. The former path
+   // allocated one array AND stable-serialized every record on every render,
+   // including 100,000 distinct historical sales with no possible conflict.
+   // Only materialize a group and compare its canonical bytes for ACTUAL repeats.
    const groups=new Map(),result=[];
-   for(const v of records||[]){if(!v)continue;if(v.id==null||v.id===''){result.push(v);continue;}const k=String(v.id),g=groups.get(k)||[];g.push(v);groups.set(k,g);}
-   groups.forEach(g=>{if(g.some(v=>stable(v)!==stable(g[0]))){if(g.some(relevant)){warnings.add('conflicting-'+kind);if(kind==='sale')saleConflict=true;else if(kind==='expense')expenseConflict=true;else adjustmentConflict=true;}return;}result.push(g[0]);});return result;
+   for(const v of records||[]){
+    if(!v)continue;
+    if(v.id==null||v.id===''){result.push(v);continue;}
+    const k=String(v.id),g=groups.get(k);
+    if(!g){groups.set(k,{first:v,repeats:null});continue;}
+    if(!g.repeats)g.repeats=[g.first];
+    g.repeats.push(v);
+   }
+   groups.forEach(g=>{
+    if(g.repeats&&g.repeats.some(v=>stable(v)!==stable(g.first))){
+     if(g.repeats.some(relevant)){warnings.add('conflicting-'+kind);if(kind==='sale')saleConflict=true;else if(kind==='expense')expenseConflict=true;else adjustmentConflict=true;}
+     return;
+    }
+    result.push(g.first);
+   });
+   return result;
   }
   const sales=unique(input.sales,'sale',v=>inScope(v)&&saleRelevant(v));
   for(const v of sales){
@@ -154,16 +181,20 @@
     else if(!returned){unknownReturn=true;warnings.add('undated-return');}
    }
   }
-  const saleMap=new Map(sales.filter(v=>v.id!=null).map(v=>[String(v.id),v]));
+  const adjustments=input.adjustments||[];
+  // Today's projection has no commission adjustments. Building two more full
+  // historical-sale maps per render only increases heap pressure on Opera.
+  const haveAdjustments=Array.isArray(adjustments)?adjustments.length>0:true;
+  const saleMap=haveAdjustments?new Map(sales.filter(v=>v.id!=null).map(v=>[String(v.id),v])):new Map();
   // Keep source scope evidence even when contradictory sale IDs are quarantined.
   const saleCandidates=new Map();
-  for(const v of input.sales||[]){if(!v||v.id==null)continue;const key=String(v.id),group=saleCandidates.get(key)||[];group.push(v);saleCandidates.set(key,group);}
+  if(haveAdjustments)for(const v of input.sales||[]){if(!v||v.id==null)continue;const key=String(v.id),group=saleCandidates.get(key)||[];group.push(v);saleCandidates.set(key,group);}
   const signedCents=n=>{if((typeof n!=='number'&&!(typeof n==='string'&&n.trim()))||!Number.isFinite(Number(n))||Math.abs(Number(n))>=1e21)return null;const c=Math.round(Number(Number(n).toFixed(10)+'e2'));return Number.isSafeInteger(c)?c:null;};
   const adjustmentRelevant=a=>{
    const candidates=saleCandidates.get(String(a.ventaId||''))||[];
    return expenseRelevant(a)&&(!scoped||candidates.some(inScope));
   };
-  for(const a of unique(input.adjustments,'adjustment',adjustmentRelevant)){
+  for(const a of unique(adjustments,'adjustment',adjustmentRelevant)){
    if(a.borrado||!expenseRelevant(a))continue;
    const sale=saleMap.get(String(a.ventaId||''));
    if(!sale&&(saleCandidates.get(String(a.ventaId||''))||[]).length&&adjustmentRelevant(a)){adjustmentConflict=true;warnings.add('unreconciled-commission-adjustment');continue;}
