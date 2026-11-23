@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.00",
+  "version": "v0.9.01",
   "fecha": "2026-11-22",
-  "changelog": "v0.9.00 C222 Sync4 completo: parches Gemini Neon 01,02,03,06,07,08,09,10 (failback automatico y regreso a la 2.0, aparato nuevo, diagnostico OCSync4Diagnostico); PIN de aparato nuevo en el panel; el corte de red ya no se salta la verificacion del PIN.",
+  "changelog": "v0.9.01 C223: el indicador de sincronizacion del encabezado muestra el estado de Sync4 cuando la 2.0 esta activa (parche 11 de Gemini Neon).",
   "requerida": false,
-  "shell": "f123-shell-v900",
+  "shell": "f123-shell-v901",
   "apagar": [],
-  "releaseName": "v0.9.00",
-  "cacheGeneration": "golden436"
+  "releaseName": "v0.9.01",
+  "cacheGeneration": "golden437"
 }
