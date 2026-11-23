@@ -7818,7 +7818,7 @@
         const _fechaVentaTexto = String(_infoPago.fechaVenta || "").trim();
         let _fechaVentaIso = null;
         if (_fechaVentaTexto) {
-          if (!/^\\d{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])$/.test(_fechaVentaTexto))
+          if (!/^\d{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])$/.test(_fechaVentaTexto))
             return J({ error: "Choose a valid sale date (YYYY-MM-DD)." }, 400);
           const diaElegido = new Date(_fechaVentaTexto + "T12:00:00Z");
           if (!Number.isFinite(diaElegido.getTime()) || diaElegido.toISOString().slice(0, 10) !== _fechaVentaTexto)
