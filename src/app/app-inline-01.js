@@ -7270,7 +7270,7 @@ function _ocFilaVentaRawHtml(v,es,money){
   return '<div style="padding:6px 0;border-top:1px solid var(--hairline,#E8ECF2);font-size:13px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;" data-comm-raw-row data-search="'+search+'">'
     +'<div style="min-width:0;"><strong>'+escHtml(v.day||v.id||"")+'</strong>'
     +(prod?' · <span>'+escHtml(prod)+'</span>':"")
-    +(meta?'<div style="font-size:12px;color:var(--ink-soft);">'+escHtml(meta)+'</div>':"")
+    +(meta?'<div style="font-size:13px;color:var(--ink-soft);">'+escHtml(meta)+'</div>':"")
     +'</div>'
     +'<div style="text-align:right;white-space:nowrap;">'
     +(v.gross!=null?'<span style="color:var(--ink-soft);margin-right:8px;">'+(es?"Bruto: ":"Gross: ")+money(v.gross)+'</span>':"")
