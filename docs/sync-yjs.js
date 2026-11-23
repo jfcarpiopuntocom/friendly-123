@@ -1650,7 +1650,7 @@
       } catch (_) {}
     }
     function hacerCkpt() {
-      if (window.__f123SafeBootMode || window.__f123CrashLoopPaused) return;
+      if (typeof window !== "undefined" && (window.__f123SafeBootMode || window.__f123CrashLoopPaused)) return; // C239: also runs outside a browser window
       // v756: internal log of WHY a checkpoint is skipped (read-only mirror of the guards below; behaviour unchanged).
       try {
         var omitido = _soloMemoria ? "solo-memoria" : canal.ws && canal.ws.peerOnly ? "peer" : !permiteCkpt ? "sin-ckpt" :
