@@ -35,6 +35,9 @@ function fixture(piloto = {}) {
   vm.runInNewContext(actualLifecycle, {
     document, window, API,
     programarRetorno() { retorno++; },
+    // C228: since patch 07 (v0.9.00) the extracted lifecycle also retries the 2.0 cutover; that function lives
+    // just above the slice in docs/sync-yjs.js, so the sandbox provides a no-op with the same name.
+    _intentarActivarCorte20SiElegible() {},
     clearTimeout() {},
     timerRetorno: null,
     retornoEnCurso: false,
