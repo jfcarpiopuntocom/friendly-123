@@ -254,10 +254,10 @@
     fb.leerHead(url).then(function (n) {
       sumarBajada(capaFb, null, url);
       if (!n || !(n.rev || n.seq) || ws.readyState !== 1) return;
-      var hv = n.rev + ":" + n.seq;
-      anotarHead(url, hv);
-      if (headAplicado(url) === hv) return;
       if (capa.relay === cf && OTRA_CAPA_LEER_MS) {
+        var hv = n.rev + ":" + n.seq;
+        anotarHead(url, hv);
+        if (headAplicado(url) === hv) return;
         leerFirebase(ws, url);
         return;
       }

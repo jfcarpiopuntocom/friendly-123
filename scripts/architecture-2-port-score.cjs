@@ -182,7 +182,15 @@ function inspect(){
   assert(qa.includes('missing or unsafe payee amount is also fail-closed'));
   assert(qa.includes('exact cent-level split and reversed identical receipt'));
   assert(src.includes('if(splitMismatch){tot.splitConflicts++;commission=null;}'));
-  assert(src.includes('commission:splitMismatch?null:cents(finite(r&&r.monto))'));
+  const history=require(path.join(root,'docs/core/commission-history.js'));
+  const sale={id:'c162-audit',cantidad:1,precioUnit:50,comisionAsociado:10,
+    reparto:[{promotoraId:'first',monto:8},{promotoraId:'second',monto:2}]};
+  const exact=history.project({sales:[sale],group:'comisionista'});
+  assert.deepEqual(exact.rows.map(row=>row.commission),[8,2],'C162 verified shares must retain their own amounts');
+  sale.reparto[1].monto=7;
+  const mismatch=history.project({sales:[sale],group:'comisionista'});
+  assert.equal(mismatch.totals.splitConflicts,1,'C162 a mismatched split must be flagged');
+  assert.deepEqual(mismatch.rows.map(row=>row.commission),[null,null],'C162 every mismatched share must remain unknown');
   assert.equal((isC164?quality.auditTrail?.find(r=>r.id==='C162'):quality.latestReview)?.sourceSha,'18f0c5a682ad83c0a62bfa694196b7a02555c293');
  }
  if(isC160){
@@ -226,10 +234,14 @@ function inspect(){
  }
  if(isC152){
   const qa=fs.readFileSync(path.join(root,'test/p0-c151-single-payee-commission.test.cjs'),'utf8');
-  const src=fs.readFileSync(path.join(root,'docs/core/commission-history.js'),'utf8');
   assert(qa.includes('C151 RED: sole credited assistant receives her commission'));
   assert(qa.includes('one seller row, repeated receipt and empty split'));
-  assert(src.includes('group==="comisionista"&&Array.isArray(v.reparto)&&v.reparto.length>0'));
+  const history=require(path.join(root,'docs/core/commission-history.js'));
+  const sale={id:'c152-audit',cantidad:1,precioUnit:50,comisionAsociado:10,promotoraId:'seller',
+    reparto:[{rol:'asistente',promotoraId:'assistant',monto:10}]};
+  const view=history.project({sales:[sale,sale],group:'comisionista'});
+  assert.deepEqual(view.rows.map(row=>[row.group,row.commission]),[['assistant',10]],
+    'C152 a sole credited payee must receive the commission exactly once');
   assert.equal((isC154?quality.auditTrail?.find(r=>r.id==='C152'):quality.latestReview)?.sourceSha,'ad94cb2af84497b1d9f7d01b939d9f38c10a1c0b');
  }
  if(isC150){

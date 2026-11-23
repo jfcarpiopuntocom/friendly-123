@@ -1636,9 +1636,9 @@
     document.addEventListener("visibilitychange", function () { if (!document.hidden && (yjsAtascado() || (ws && ws.relayLayer === "f123_relay_cupo_cf_v1"))) { pullDelRelay(); programarFichas(); } });
   } catch (_) {}
   function clavePullRelay() {
-    var layer = (ws && (ws.pullRelayLayer || ws.relayLayer)) || "";
-    if (layer && layer !== "f123_relay_cupo_fb_v1") return "f123_relay_pull_" + salaIdActual + "_" + layer;
-    return "f123_relay_pull_" + salaIdActual;
+    var layer = (ws && (ws.pullRelayLayer || ws.relayLayer)) || "sin_capa";
+    // The old unsuffixed cursor may belong to any relay. Replay once per layer.
+    return "f123_relay_pull_" + salaIdActual + "_" + layer;
   }
   function leerPull() {
     var p = null;

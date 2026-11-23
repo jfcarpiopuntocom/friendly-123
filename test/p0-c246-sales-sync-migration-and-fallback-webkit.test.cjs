@@ -249,6 +249,32 @@ test('RED->GREEN (WebKit): Path (a) Owner one-time encrypted migration pushes hi
   }
 });
 
+test('C246: a shared legacy cursor never advances Firebase or Cloudflare recovery', () => {
+  const source = fs.readFileSync(path.join(ROOT, 'docs/sync-realtime.js'), 'utf8');
+  const start = source.indexOf('  function clavePullRelay()');
+  const end = source.indexOf('  function pullDelRelay()', start);
+  assert.ok(start >= 0 && end > start);
+  const cursor = (seq) => JSON.stringify({ rev: 1, seq });
+  const data = new Map([['f123_relay_pull_review-room', cursor(500)]]);
+  const ctx = {
+    salaIdActual: 'review-room',
+    ws: { relayLayer: 'f123_relay_cupo_cf_v1', pullRelayLayer: 'f123_relay_cupo_fb_v1' },
+    localStorage: { getItem: (key) => data.get(key), setItem: (key, value) => data.set(key, value) },
+    _paginasPull: 0
+  };
+  vm.createContext(ctx);
+  vm.runInContext(source.slice(start, end), ctx);
+
+  assert.equal(ctx.leerPull().seq, 0, 'Firebase must start independently of the legacy cursor');
+  ctx.recibirPaginaPull({ rev: 1, seq: 17, more: false });
+  ctx.ws.pullRelayLayer = 'f123_relay_cupo_cf_v1';
+  assert.equal(ctx.leerPull().seq, 0, 'Cloudflare must start independently of Firebase');
+  ctx.recibirPaginaPull({ rev: 1, seq: 23, more: false });
+  ctx.ws.pullRelayLayer = 'f123_relay_cupo_fb_v1';
+  assert.equal(ctx.leerPull().seq, 17, 'Firebase resumes its own position');
+  assert.equal(data.get('f123_relay_pull_review-room'), cursor(500), 'the old cursor remains intact for older versions');
+});
+
 test('RED->GREEN: sync-yjs processes Firebase HEAD access BEFORE causal rescue and records markRecovered when HEAD matches despite missing parents', async () => {
   const src = fs.readFileSync(path.join(ROOT, 'docs/sync-yjs.js'), 'utf8');
   const start = src.indexOf('    function clavePendientes() {', src.indexOf('function crearCanal('));
