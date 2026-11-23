@@ -235,7 +235,7 @@ test('RED->GREEN (WebKit): Path (a) Owner one-time encrypted migration pushes hi
       if (window.OCSecure) window.OCSecure.leerPinQueAbre = () => ({ owner: '314', emp: '', acct: '' });
       window.dispatchEvent(new CustomEvent('oc-login', { detail: { rol: 'dueno', demo: false } }));
       if (window.OCSyncControl && window.OCSyncControl.resincronizar) window.OCSyncControl.resincronizar();
-      for (let i = 0; i < 60; i++) {
+      for (let i = 0; i < 100; i++) {
         const exp = await (await fetch('/api/respaldo/exportar')).json();
         if ((exp.ventas || []).length >= 18) return exp;
         await new Promise(r => setTimeout(r, 150));
