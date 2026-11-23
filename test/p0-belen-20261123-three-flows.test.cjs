@@ -9,6 +9,7 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const read = p => fs.readFileSync(path.join(root, p), 'utf8');
 const ui = read('docs/plan-pagos-ui.js');
+const servedPaymentUI = read('docs/plan-pagos-ui.min.js');
 const app = read('src/app/app-inline-01.js');
 const bundle = read('docs/app-inline-01.min.js');
 const backend = read('docs/mock-backend.js');
@@ -18,6 +19,14 @@ test('all edited runtime scripts parse (both source and served bundle)', () => {
                       'docs/app-inline-01.min.js', 'docs/mock-backend.js']) {
     cp.execFileSync(process.execPath, ['--check', path.join(root, file)]);
   }
+});
+
+test('the HTML serves the exact payment UI carrying the partial-payment rescue button', () => {
+  const html = read('docs/index.html');
+  assert.match(html, /src="\.\/plan-pagos-ui\.min\.js"/);
+  assert.match(servedPaymentUI, /pp-ab-change/, 'RESUME action must exist in served script');
+  assert.match(servedPaymentUI, /pp-ab-partial-hint/, 'partial payment guidance must reach Safari');
+  assert.match(servedPaymentUI, /montoEditadoPorOperador/, 'the served code must preserve manual amount');
 });
 
 test('new product Category is removed from both entry forms, while edit keeps category', () => {
