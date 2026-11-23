@@ -48,16 +48,16 @@ html.ui2 body{font-variant-numeric:tabular-nums}
    Los 4 botones rapidos (- + estrella lapiz) se conservan debajo. Borde de semaforo intacto.
    Foto con float (funciona en navegadores viejos, sin :has). */
 html.ui2 .grid-cajas{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))!important;gap:8px!important}
-html.ui2 .caja{border-radius:14px!important;padding:10px 12px!important;min-height:0!important;height:auto!important;box-shadow:0 1px 2px rgba(15,25,35,.07),0 8px 20px -16px rgba(15,25,35,.30)!important}
-html.ui2 .caja>div:not(.ajuste-rapido){display:block!important;min-height:0!important;height:auto!important}
-html.ui2 .caja .fotowrap{float:right!important;width:56px!important;height:56px!important;margin:0 0 4px 10px!important;border-radius:10px!important;overflow:hidden;position:relative}
-html.ui2 .caja .fotowrap img{width:56px!important;height:56px!important;object-fit:cover;object-position:center}
-html.ui2 .caja .fotowrap .iniciales{font-size:16px!important}
-html.ui2 .caja .nombre{font-size:15px!important;line-height:1.25!important;margin:0 0 2px!important;min-height:0!important;height:auto!important}
-html.ui2 .caja .detalle,html.ui2 .caja .stock{display:inline!important;font-size:13px!important;line-height:1.4!important;margin:0!important;padding:0!important;min-height:0!important}
-html.ui2 .caja .stock{font-weight:700!important}
-html.ui2 .caja .stock::before,html.ui2 .caja .stock~.detalle::before{content:" \B7  ";font-weight:400}
-html.ui2 .caja .ajuste-rapido{clear:none!important;margin-top:6px!important;min-height:0!important}
+html.ui2 #gridInventario .caja{border-radius:14px!important;padding:10px 12px!important;min-height:0!important;height:auto!important;box-shadow:0 1px 2px rgba(15,25,35,.07),0 8px 20px -16px rgba(15,25,35,.30)!important}
+html.ui2 #gridInventario .caja>div:not(.ajuste-rapido){display:block!important;min-height:0!important;height:auto!important}
+html.ui2 #gridInventario .caja .fotowrap{float:right!important;width:56px!important;height:56px!important;margin:0 0 4px 10px!important;border-radius:10px!important;overflow:hidden;position:relative}
+html.ui2 #gridInventario .caja .fotowrap img{width:56px!important;height:56px!important;object-fit:cover;object-position:center}
+html.ui2 #gridInventario .caja .fotowrap .iniciales{font-size:16px!important}
+html.ui2 #gridInventario .caja .nombre{font-size:15px!important;line-height:1.25!important;margin:0 0 2px!important;min-height:0!important;height:auto!important}
+html.ui2 #gridInventario .caja .detalle,html.ui2 .caja .stock{display:inline!important;font-size:13px!important;line-height:1.4!important;margin:0!important;padding:0!important;min-height:0!important}
+html.ui2 #gridInventario .caja .stock{font-weight:700!important}
+html.ui2 #gridInventario .caja .stock::before,html.ui2 .caja .stock~.detalle::before{content:" \B7  ";font-weight:400}
+html.ui2 #gridInventario .caja .ajuste-rapido{clear:none!important;margin-top:6px!important;min-height:0!important}
 
 /* Sold (vender): cada producto como FRANJA horizontal con mini foto a la derecha (pedido JFC 22 nov,
    como la D). Es el MISMO boton que se toca para vender, mismo orden; borde de semaforo intacto. */
