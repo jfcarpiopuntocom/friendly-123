@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.21",
+  "version": "v0.9.22",
   "fecha": "2026-11-23",
-  "changelog": "v0.9.21 Belén P0: abonos parciales de fiados sin sobrescribir el importe elegido; quitar Category del alta de producto; fecha real opcional en Sold para ventas históricas con registro auditable. Conservar Sync4 y respaldos.",
+  "changelog": "v0.9.22 Belén P0: abonos parciales de fiados sin sobrescribir el importe elegido; quitar Category del alta de producto; fecha real opcional en Sold para ventas históricas con registro auditable. Conservar Sync4 y respaldos.",
   "requerida": false,
-  "shell": "f123-shell-v921",
+  "shell": "f123-shell-v922",
   "apagar": [],
-  "releaseName": "v0.9.21",
-  "cacheGeneration": "golden458"
+  "releaseName": "v0.9.22",
+  "cacheGeneration": "golden459"
 }
