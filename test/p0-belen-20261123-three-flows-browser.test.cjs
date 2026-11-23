@@ -1,0 +1,98 @@
+'use strict';
+// Belén's three business flows, executed with the actual bundled Safari/WebKit
+// application and the existing in-memory mock API; synthetic notebook only.
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const { webkit } = require('playwright');
+const { pathToFileURL } = require('node:url');
+const path = require('node:path');
+const URL = pathToFileURL(path.resolve(__dirname, '../docs/index.html')).href;
+
+async function openShop(browser) {
+  const page = await browser.newPage({ viewport: {width: 390,height:844} });
+  await page.goto(URL, {waitUntil:'load'});
+  await page.waitForFunction(() => window.__ocMockBackendReady === true &&
+    window.AMG && window.AMG.Cartera && typeof window.abonarCliente === 'function');
+  await page.addStyleTag({content:'#oc-gate,#puerta,#oc-splash{display:none!important;pointer-events:none!important}'});
+  await page.evaluate(() => { window.OCAuth = Object.assign(window.OCAuth || {},
+    {rolActual:()=> 'dueno',esDemo:()=>false}); });
+  return page;
+}
+
+test('WebKit real UI: one $10 payment on one $35 debt leaves exactly $25 owed and no second charge', async () => {
+  const browser = await webkit.launch({headless:true});
+  try {
+    const page=await openShop(browser);
+    const fixture=await page.evaluate(async () => {
+      const id='belen-partial-'+Date.now();
+      const customer=await (await fetch('/api/clientes',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({nombre:id})
+      })).json();
+      if(!customer.id) throw Error('customer creation: '+JSON.stringify(customer));
+      const resp=await fetch('/api/clientes/'+customer.id+'/fiar',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({monto:35,motivo:'Synthetic credit [for:Prior purchase]',opId:'fiar-'+id})
+      });
+      const debt=await resp.json();
+      if(!resp.ok) throw Error('debt fixture: '+JSON.stringify(debt));
+      window.abonarCliente(customer.id,'Synthetic');
+      return {customerId:customer.id};
+    });
+    await page.waitForFunction(() => {
+      const m=document.querySelector('#pp-modal-abono');
+      return m && !m.querySelector('#pp-ab-ok').disabled &&
+        !!m.querySelector('#pp-ab-consumos .pp-chip');
+    },{timeout:15000});
+    await page.locator('#pp-ab-consumos .pp-chip').first().click();
+    assert.equal(await page.locator('#pp-ab-monto').inputValue(),'35.00');
+    await page.locator('#pp-ab-monto').fill('10');
+    assert.equal(await page.locator('#pp-ab-monto').inputValue(),'10');
+    await page.locator('#pp-ab-ok').click();
+    await page.waitForFunction(() => !document.getElementById('pp-modal-abono'),null,{timeout:20000});
+    const result=await page.evaluate(async id=>{
+      const r=await fetch('/api/clientes/'+id+'/cartera');
+      const debt=await r.json();
+      return {status:r.status,saldo:debt.saldo,items:debt.consumosPendientes};
+    },fixture.customerId);
+    assert.equal(result.status,200);
+    assert.equal(result.saldo,-25,'exact outstanding debt $25 after $10 payment');
+    assert.equal(result.items.length,1);
+    assert.equal(result.items[0].pendiente,25,'the selected purchase remains partly outstanding');
+    assert.equal(await page.locator('#pp-modal-abono').count(),0);
+  } finally { await browser.close(); }
+});
+
+test('WebKit real backend: historic Sold keeps June business date and real audit time; different-date opId conflicts', async () => {
+  const browser=await webkit.launch({headless:true});
+  try {
+    const page=await openShop(browser);
+    const result=await page.evaluate(async ()=>{
+      const id='belen-historic-'+Date.now();
+      const post=async(url,body)=> {
+        const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        return {status:response.status,body:await response.json()};
+      };
+      const product=await post('/api/productos',{nombre:id,barcode:id,ubicacionId:'bar',
+        precio:35,costo:5,stockInicial:2});
+      if(product.status>=400 || !product.body.id)throw Error('product: '+JSON.stringify(product));
+      const opId='sale-belen-historical-'+Date.now();
+      const url='/api/productos/'+product.body.id+'/venta';
+      const first=await post(url,{cantidad:1,opId,info:{formaPago:'cash',fechaVenta:'2026-06-23'}});
+      const conflict=await post(url,{cantidad:1,opId,info:{formaPago:'cash',fechaVenta:'2026-07-23'}});
+      const backup=await (await fetch('/api/respaldo/exportar')).json();
+      const sales=(backup.ventas||[]).filter(v=>v.productoId===product.body.id);
+      const productAfter=(backup.productos||[]).find(p=>p.id===product.body.id);
+      return {first,conflict,sales,stock:productAfter&&productAfter.stockActual};
+    });
+    assert.ok(result.first.status>=200&&result.first.status<300,JSON.stringify(result.first));
+    assert.equal(result.conflict.status,409,'same sale opId cannot change its business date');
+    assert.equal(result.sales.length,1,'one historic sale, not two');
+    assert.equal(result.sales[0].fecha.slice(0,10),'2026-06-23');
+    assert.equal(result.sales[0].info.fechaVenta,'2026-06-23');
+    const recorded=new Date(result.sales[0].registradaEn).getTime();
+    assert.ok(Number.isFinite(recorded) && Math.abs(Date.now()-recorded)<120000,
+      'actual registration timestamp remains current');
+    assert.equal(result.stock,1,'sale subtracts stock once, even after conflicting retry');
+  } finally { await browser.close(); }
+});
