@@ -134,7 +134,7 @@
     "./app-style-03.min.css": "sha256-72d68b58556cb47c0ebddec4be69f93120f2c910bc65d9c135ce90ff8a74039b",
     "./ui2.css": "sha256-1bba387cb8d93f6e6d8ee77aea1180485268523cf68df5665277e6bd8fe8406a",
     "./dashboard-main.min.css": "sha256-8f4fa18f993df4f420a903715c1d342d50f850a6fd395beb510fc138ad087046",
-    "./dashboard-main.min.js": "sha256-fa3e755b6eca22ab04c9cf3b7601ecf72e9a7c5b135749abfadcaac7a554bb65",
+    "./dashboard-main.min.js": "sha256-ec54fc95c3f7a6d97a210437528366af7892240e4922d8f45d9a39a2e0c84cf8",
     "./core/hechos-chain-readonly.js": "sha256-8fd607dca2a1622514da97dc356e6309f707c8406c50b50d7bb3b0d4d7b59814",
     "./core/commission-history.js": "sha256-023d5695d4accf2ef5b580367fbc13eec635a6c30142910c43b4399b126aece4",
     "./core/business-read-model.js": "sha256-e12f548eec4b953b9ba26eff506f349e0754005b2434fe8995b5f279337ff482",
