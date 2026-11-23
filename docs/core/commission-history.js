@@ -92,6 +92,52 @@
   }
   function safeName(value,fallback){return String(value==null||String(value).trim()===""?fallback:value);}
   function escape(value){return String(value==null?"":value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
+  /* C247 (JFC 23 nov 2026, Belen: «los filtros deben poder sumarse»): cumulative filters. Every non-empty list narrows the SAME set of
+     sales (AND between filters, OR inside one filter), together with the date range. Ids are the ones the groups already use. */
+  function _idsDe(v){
+    var pers=[String(v.promotoraId||v.asociadoNombre||"")];
+    if(Array.isArray(v.reparto))v.reparto.forEach(function(r){pers.push(String(r&&(r.promotoraId||r.payeeId||r.nombre)||""));});
+    return {
+      comisionista:pers.filter(Boolean),
+      producto:[String(v.productoId||v.productoNombre||"")],
+      percha:[String(v.ubicacionId||v.ubicacionNombre||"")],
+      cliente:[String(v.clienteId||v.clienteNombre||"")]
+    };
+  }
+  function _cumple(v,filtros){
+    if(!filtros)return true;
+    var ids=null;
+    for(var k in filtros){
+      var sel=filtros[k];
+      if(!Array.isArray(sel)||!sel.length)continue;
+      ids=ids||_idsDe(v);
+      var mine=ids[k]||[];
+      if(!sel.some(function(x){return mine.indexOf(String(x))>=0;}))return false;
+    }
+    return true;
+  }
+  // Options for the filter lists: from the sales inside the date range only (never narrowed by the other filters), so choices never vanish.
+  function facets(input){
+    input=input||{};
+    var from=/^\d{4}-\d{2}-\d{2}$/.test(input.from||"")?input.from:"",to=/^\d{4}-\d{2}-\d{2}$/.test(input.to||"")?input.to:"";
+    var lang=input.lang==="es"?"es":"en",zone=businessZone(input.zone);
+    var out={comisionista:new Map(),producto:new Map(),percha:new Map(),cliente:new Map()};
+    (Array.isArray(input.sales)?input.sales:[]).forEach(function(v){
+      if(!v||typeof v!=="object")return;
+      var day=keyDay(v.fechaLocal||v.fecha,zone);
+      if(from&&(!day||day<from))return;
+      if(to&&(!day||day>to))return;
+      var a=String(v.promotoraId||v.asociadoNombre||"");if(a&&!out.comisionista.has(a))out.comisionista.set(a,safeName(v.asociadoNombre,a));
+      var p=String(v.productoId||v.productoNombre||"");if(p&&!out.producto.has(p))out.producto.set(p,safeName(v.productoNombre,p));
+      var u=String(v.ubicacionId||v.ubicacionNombre||"");if(u&&!out.percha.has(u))out.percha.set(u,safeName(v.ubicacionNombre,u));
+      var c=String(v.clienteId||v.clienteNombre||"");if(c&&!out.cliente.has(c))out.cliente.set(c,safeName(v.clienteNombre,c));
+    });
+    var res={};
+    Object.keys(out).forEach(function(k){
+      res[k]=Array.from(out[k]).map(function(e){return {id:e[0],name:e[1]};}).sort(function(x,y){return String(x.name).localeCompare(String(y.name),lang);});
+    });
+    return res;
+  }
   function project(input){
     input=input||{};
     var group=views.indexOf(input.group)>=0?input.group:"total";
@@ -125,6 +171,7 @@
       var day=keyDay(v.fechaLocal||v.fecha,zone);
       if(from&&(!day||day<from))return;
       if(to&&(!day||day>to))return;
+      if(!_cumple(v,input.filtros))return; // C247: cumulative filters
       // Deduplicate before cancellation or conflict accounting too.
       var receiptId=v.id==null?"":String(v.id);
       if(receiptId&&seen.has(receiptId))return;
@@ -254,5 +301,5 @@
       +(body||'<p style="font-size:15px;">'+(es?"No hay ventas en las fechas elegidas.":"No sales in the selected dates.")+'</p>')))
       +'</section>';
   }
-  return {views:views,day:keyDay,project:project,render:render};
+  return {views:views,day:keyDay,project:project,render:render,facets:facets};
 });

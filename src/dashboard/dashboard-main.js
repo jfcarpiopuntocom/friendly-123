@@ -993,6 +993,8 @@
   // Belén 1AAA: the default is the full read-only history; a selected month
   // retains the exact same ledger, payment receipts and adjustments as before.
   var cmDesde = "", cmHasta = "", cmGrupo = "total";
+  /* C247 (JFC 23 nov 2026, Belen): cumulative filters. Each list narrows the same sales together with the dates (AND between lists, OR inside one). */
+  var cmFiltros = { comisionista: [], producto: [], percha: [], cliente: [] };
   function cmMesActual() { return mesLocalDe(new Date().toISOString()); }
   function cmEtiquetaMes(m) {
     var p = String(m || "").split("-").map(Number);
@@ -1233,8 +1235,24 @@
       +labels.map(function(pair){return '<option value="'+pair[0]+'"'+(cmGrupo===pair[0]?' selected':'')+'>'+pair[1]+'</option>';}).join("")
       +'</select></label></div>';
     var canRead=(!datos.cobertura||datos.cobertura.ventas!==false);
+    // C247: cumulative filter lists (checkboxes, several at once). Options come from the sales inside the date range.
+    var filtrosHtml="";
+    if(canRead&&window.OCCommissionHistory&&window.OCCommissionHistory.facets){
+      var fac=window.OCCommissionHistory.facets({sales:datos.ventas||[],from:cmDesde,to:cmHasta,lang:es?"es":"en",zone:zonaNegocioDashboard()});
+      var nombresF={comisionista:es?"Comisionista":"Associate",producto:es?"Producto":"Product",percha:es?"Percha / evento":"Rack / event",cliente:es?"Cliente":"Customer"};
+      var hayF=false;
+      filtrosHtml='<div class="cm-card" data-cm-filtros style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;margin:8px 0;">'
+        +Object.keys(nombresF).map(function(k){
+          var sel=cmFiltros[k]||[];if(sel.length)hayF=true;
+          return '<details style="min-width:150px;"><summary style="min-height:44px;cursor:pointer;font-size:14px;font-weight:700;color:#0F1923;">'+esc(nombresF[k])+(sel.length?' ('+sel.length+')':'')+'</summary>'
+            +'<div style="max-height:220px;overflow:auto;padding:4px 0;">'
+            +(fac[k]||[]).map(function(o){return '<label style="display:flex;align-items:center;gap:8px;min-height:44px;font-size:14px;color:#0F1923;"><input type="checkbox" data-cm-filtro="'+k+'" value="'+esc(o.id)+'"'+(sel.indexOf(o.id)>=0?' checked':'')+'> '+esc(o.name)+'</label>';}).join("")
+            +'</div></details>';}).join("")
+        +(hayF?'<button type="button" data-cm-filtros-limpiar class="cm-key" style="min-height:44px;">'+(es?"Quitar filtros":"Clear filters")+'</button>':"")
+        +'</div>';
+    }
     var report=canRead&&window.OCCommissionHistory
-      ? window.OCCommissionHistory.render({sales:datos.ventas||[],from:cmDesde,to:cmHasta,group:cmGrupo,
+      ? window.OCCommissionHistory.render({sales:datos.ventas||[],from:cmDesde,to:cmHasta,group:cmGrupo,filtros:cmFiltros,
           lang:es?"es":"en",zone:zonaNegocioDashboard()})
       : '<div class="cm-card" role="status">'+(es?"Ventas pendientes de sincronizar. No se muestra un cero incompleto.":"Sales awaiting synchronization; incomplete records never become zero.")+'</div>';
     // C243 (JFC 23 nov 2026, eligio «Pagar tambien en todas las fechas»): what is still owed this month stays visible
@@ -1248,11 +1266,16 @@
       return '<div class="cm-actions" style="margin-top:6px;"><a class="pagar" href="index.html#editar=comisiones:'+encodeURIComponent(u)+'&mes='+encodeURIComponent(mes)+'">'
         +(es?"Registrar pago total/parcial":"Record full/partial payment")+'</a> <span style="font-size:14px;">'+esc(nombrePercha(u))+' · '+esc(cmEtiquetaMes(mes))+' · '+money(deudas[k])+'</span></div>';}).join("");
     var pendHtml=canRead&&(pendHoy>0||Object.keys(deudas).length)?'<div class="cm-card" data-comm-pending-now style="margin:8px 0;"><div class="et cm-rojo">'+(es?"Por pagar":"Still to pay")+' · '+esc(cmEtiquetaMes(cmMesActual()))+'</div><div class="n cm-rojo">'+money(pendHoy||0)+'</div>'+enlacesPago+'</div>':"";
-    cont.innerHTML=toolbar+pendHtml+report;
+    cont.innerHTML=toolbar+filtrosHtml+pendHtml+report;
     var sel=$("cm-mes");if(sel)sel.addEventListener("change",function(){cmMes=sel.value||null;pintarComisiones();});
     var desde=$("cm-desde");if(desde)desde.addEventListener("change",function(){cmDesde=desde.value;pintarComisiones();});
     var hasta=$("cm-hasta");if(hasta)hasta.addEventListener("change",function(){cmHasta=hasta.value;pintarComisiones();});
     var grupo=$("cm-grupo");if(grupo)grupo.addEventListener("change",function(){cmGrupo=grupo.value;pintarComisiones();});
+    cont.querySelectorAll("input[data-cm-filtro]").forEach(function(i){i.addEventListener("change",function(){
+      var k=i.getAttribute("data-cm-filtro"),v=i.value,a=cmFiltros[k]||(cmFiltros[k]=[]),ix=a.indexOf(v);
+      if(i.checked&&ix<0)a.push(v);else if(!i.checked&&ix>=0)a.splice(ix,1);
+      pintarComisiones();});});
+    var limpiar=cont.querySelector("[data-cm-filtros-limpiar]");if(limpiar)limpiar.addEventListener("click",function(){cmFiltros={comisionista:[],producto:[],percha:[],cliente:[]};pintarComisiones();});
   }
   function pintarComisiones() {
     var cont = $("cm"); if (!cont) return;
