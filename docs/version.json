@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.09",
+  "version": "v0.9.10",
   "fecha": "2026-11-22",
-  "changelog": "v0.9.09 C237: Sold ya no mete la lista completa de clientes dentro de cada venta (ventas x clientes nodos ocultos tumbaban Safari). Cada venta lleva su cliente y la lista se llena al abrir su editor.",
+  "changelog": "v0.9.10 C240: Supabase en pausa en la app y el panel (su cliente reconectaba cada 10 s en cada aparato y el proyecto quedo restringido); la app usa Cloudflare, Firebase y aparatos vecinos. C239 C239 (kit C237 de Gemini sobre lo publicado): freno de bucles de arranque en Safari sin tocar datos, adopcion de version nueva arreglada (C168), reenganche que limpia tambien la cache de disco de Safari, conexiones IndexedDB renovadas al volver atras, limpieza de memoria de imagenes y lienzos, checkpoint escalonado en movil. Sold monta 120 ventas y el buscador y Corregir montan las demas al pedirlas.",
   "requerida": false,
-  "shell": "f123-shell-v909",
+  "shell": "f123-shell-v910",
   "apagar": [],
-  "releaseName": "v0.9.09",
-  "cacheGeneration": "golden445"
+  "releaseName": "v0.9.10",
+  "cacheGeneration": "golden446"
 }

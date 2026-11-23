@@ -12,9 +12,9 @@
       throw new Error(message('Choose a JPEG, PNG or WebP photo.', 'Elige una foto JPEG, PNG o WebP.'));
     }
     const url = URL.createObjectURL(file);
-    let data, canvas, jpegCalidadElegida = null;
+    let data, canvas, img, jpegCalidadElegida = null;
     try {
-      const img = new Image();
+      img = new Image();
       await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = url; });
       canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
@@ -42,9 +42,14 @@
     // Same pixel dimensions as the already readable JPEG. Favor high-quality
     // WebP near half its bytes; if unsupported or not smaller, keep the JPEG.
     // The subsequent hash refers to the ACTUAL encoded payload, not its parent.
-    if (typeof window.OCFotos.optimizarCapturaFoto === 'function') {
-      try { data = window.OCFotos.optimizarCapturaFoto(canvas, data, 180000, {jpegQuality:jpegCalidadElegida, jpegFloor:0.77}); }
-      catch (_) { /* Existing readable receipt JPEG remains unchanged. */ }
+    try {
+      if (typeof window.OCFotos.optimizarCapturaFoto === 'function') {
+        try { data = window.OCFotos.optimizarCapturaFoto(canvas, data, 180000, {jpegQuality:jpegCalidadElegida, jpegFloor:0.77}); }
+        catch (_) { /* Existing readable receipt JPEG remains unchanged. */ }
+      }
+    } finally {
+      if (canvas) { canvas.width = 0; canvas.height = 0; canvas = null; }
+      if (img) { img.onload = img.onerror = null; img.src = ''; img = null; }
     }
     const hash = await OCFotos.hashDeDataUrl(data);
     if (!await OCFotos.guardarPorHash(hash, data)) throw new Error(message('The receipt photo was not saved. Free device storage and retry.', 'No se guardó la foto. Libera espacio del aparato y reintenta.'));

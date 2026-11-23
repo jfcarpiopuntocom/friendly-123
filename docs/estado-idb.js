@@ -240,6 +240,11 @@
     dbPromise = promise;
     return promise;
   }
+  if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+    window.addEventListener("pageshow", function (ev) {
+      if (ev && ev.persisted) dbPromise = null;
+    });
+  }
 
   /* ESCRITURAS AGRUPADAS (caza de bugs 2026-08-18). El espejo se dispara en
      CADA guardado, o sea en cada venta. En una feria con ventas seguidas eran

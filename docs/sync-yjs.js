@@ -1519,7 +1519,7 @@
        cada conexión converge sin duplicar. Zero-knowledge intacto: el relay guarda
        bytes cifrados, no entiende nada. */
     var _lamCtr = 0;
-    function _b64(buf) { var u = new Uint8Array(buf), s = ""; for (var i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s); }
+    function _b64(buf) { var u = new Uint8Array(buf), parts = []; for (var i = 0; i < u.length; i += 16384) parts.push(String.fromCharCode.apply(null, u.subarray(i, i + 16384))); return btoa(parts.join("")); }
     /* v665 (history inflation): one stock change made 4 to 6 catalog ops because sembrar() writes the product, its
        witness, the activity row and the queue seal in SEPARATE transactions, each becoming its own encrypted op on the
        relay. Updates produced in the same synchronous burst are now merged (Y.mergeUpdates is lossless: same content,
@@ -1650,6 +1650,7 @@
       } catch (_) {}
     }
     function hacerCkpt() {
+      if (typeof window !== "undefined" && (window.__f123SafeBootMode || window.__f123CrashLoopPaused)) return; // C239: also runs outside a browser window
       // v756: internal log of WHY a checkpoint is skipped (read-only mirror of the guards below; behaviour unchanged).
       try {
         var omitido = _soloMemoria ? "solo-memoria" : canal.ws && canal.ws.peerOnly ? "peer" : !permiteCkpt ? "sin-ckpt" :
@@ -1821,7 +1822,7 @@
         // Tras dar tiempo al pull (para que este aparato ya tenga lo de los demás),
         // publicar el estado COMPLETO como checkpoint: así el catálogo que ya tenía
         // (aunque nunca haya cambiado desde v285) queda disponible para el que entre.
-        if (permiteCkpt) { clearTimeout(_tCkpt); _tCkpt = setTimeout(hacerCkpt, 2500); }
+        if (permiteCkpt) { clearTimeout(_tCkpt); _tCkpt = setTimeout(hacerCkpt, _aparatoMovil() ? 12000 : 2500); }
         // Canal sin ckpt (fotos): sembrado propio al conectar (cada foto va como
         // op individual, que sí cabe en el frame). Tras dar tiempo al pull.
         /* v665: a fresh device used to seed 3.2 s after connecting even while the photo history was still downloading,

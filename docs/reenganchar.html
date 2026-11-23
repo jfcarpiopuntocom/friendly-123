@@ -30,11 +30,14 @@ a[hidden]{display:none}a{display:inline-block;padding:11px 20px;color:#FFFFFF;-w
     }catch(_){return false;}
   }
   async function releaseOldShell(){
-    // Verify the newest shell is reachable before retiring any offline copy.
+    // 1) Verify the newest shell is reachable before retiring any offline copy (zero data deleted).
+    status.textContent="1/4 Comprobando la versión más reciente…";
     const response=await deadline(fetch("./version.json?rescue="+Date.now(),{cache:"no-store"}),6000);
     if(!response || !response.ok)throw new Error("sin red");
     const version=await deadline(response.json(),5000);
     if(!version || !version.shell)throw new Error("versión no comprobada");
+    // 2) Retire only friendly-123 Service Workers & shell caches (PRIME DIRECTIVE 1: never touch IDB/localStorage).
+    status.textContent="2/4 Retirando motor anterior…";
     if("serviceWorker" in navigator){
       try{
         var regs=await deadline(navigator.serviceWorker.getRegistrations(),5000);
@@ -52,6 +55,23 @@ a[hidden]{display:none}a{display:inline-block;padding:11px 20px;color:#FFFFFF;-w
         }
       }catch(_){}
     }
+    // 3) Bypass Safari max-age=600 HTTP disk cache on core scripts before reloading ./?_purge=
+    status.textContent="3/4 Descargando archivos frescos ("+String(version.version||version.shell)+")…";
+    var coreAssets=["./","./index.html","./sw.js","./aislamiento.js","./estado-ab.min.js","./estado-idb.min.js","./mock-backend.min.js","./auth-ui.min.js","./sync-yjs.min.js","./backup-scheduler.min.js","./app-inline-01.min.js","./app-inline-03.min.js","./core/commission-history.js","./commissions-by-person.js"];
+    try{
+      var q=coreAssets.slice(),w=[];
+      for(var k=0;k<3;k++)w.push((async function(){while(q.length){var u=q.shift();try{await deadline(fetch(u,{cache:"reload"}),2200);}catch(_){}}})());
+      await deadline(Promise.allSettled(w),3600);
+    }catch(_){}
+    // 4) Clear transient boot/crash latches so re-engagement lands cleanly on the newest version.
+    try{
+      sessionStorage.removeItem("f123_boot_crash_v1");
+      sessionStorage.removeItem("f123_act_sola_pendiente");
+      sessionStorage.removeItem("f123_autorecarga");
+      sessionStorage.removeItem("f123_reload_al_entrar");
+      sessionStorage.removeItem("f123_update_frenada_desde");
+    }catch(_){}
+    status.textContent="4/4 Abriendo "+String(version.version||version.shell)+"…";
   }
   releaseOldShell().then(function(){
     status.textContent="Abriendo la versión actualizada…";

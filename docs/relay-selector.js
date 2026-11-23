@@ -8,6 +8,8 @@
 (function () {
   "use strict";
   var cf = window.F123CloudflareRelay, sb = window.F123Relay, fb = window.F123FirebaseRelay;
+  // C240: with Supabase dormant, window.F123Relay is the peer relay (peer-sync.js); it is not a durable layer.
+  if (sb && sb.peerSyncRelay) sb = null;
   var peer = null;
   // Fail closed for photos and fallback: if peer-sync did not load, throw (the caller retries) instead of
   // leaving the relays without their daily budget or sending photos through a relay.

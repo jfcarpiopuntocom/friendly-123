@@ -657,3 +657,11 @@ test('C236: repeated network failures back off 5, 10, 20 s instead of retrying e
   clock.now += 10 * 1000;
   assert.equal(sub(R.connect(URL1)).kind, 'supabase', 'it is tried again after the longer wait');
 });
+
+// C240 (JFC 23 nov 2026): with Supabase dormant, the peer relay left in window.F123Relay is never used as the Supabase layer.
+test('C240: a peer relay in F123Relay is not taken as the Supabase durable layer', () => {
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '../docs/relay-selector.js'), 'utf8');
+  assert.match(src, /if \(sb && sb\.peerSyncRelay\) sb = null;/);
+  const peer = require('node:fs').readFileSync(require('node:path').join(__dirname, '../docs/peer-sync.js'), 'utf8');
+  assert.match(peer, /_relayVecinos\.peerSyncRelay = true; window\.F123Relay = _relayVecinos;/);
+});

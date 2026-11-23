@@ -487,5 +487,6 @@
     }, closeAll() { window.removeEventListener('online', resume); window.removeEventListener('oc-login', resume); document.removeEventListener('visibilitychange', resume); for (const hub of hubs.values()) for (const socket of [...hub.sockets]) socket.close(); } };
   }
   window.F123Peer = { create };
-  window.F123Relay = create();
+  // C240: mark the peer relay so relay-selector never mistakes it for the Supabase layer while Supabase is dormant.
+  var _relayVecinos = create(); _relayVecinos.peerSyncRelay = true; window.F123Relay = _relayVecinos;
 })();
