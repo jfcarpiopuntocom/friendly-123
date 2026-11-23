@@ -69,8 +69,8 @@
         var registrations=await timeout(navigator.serviceWorker.getRegistrations(),6000);
         for(var i=0;i<registrations.length;i++){
           if(appScope(registrations[i].scope,base)){
-            var removed=await timeout(registrations[i].unregister(),6000);
-            if(removed===false)throw new Error("El navegador no liberó el Service Worker anterior");
+            // false means another tab already removed this registration: desired state.
+            await timeout(registrations[i].unregister(),6000);
           }
         }
       }
@@ -78,8 +78,8 @@
         var names=await timeout(caches.keys(),6000);
         for(var j=0;j<names.length;j++){
           if(appCache(names[j])){
-            var deleted=await timeout(caches.delete(names[j]),6000);
-            if(deleted===false)throw new Error("No se pudo retirar un caché obsoleto");
+            // false means this cache was already absent: desired state.
+            await timeout(caches.delete(names[j]),6000);
           }
         }
       }
