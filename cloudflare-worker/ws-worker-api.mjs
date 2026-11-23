@@ -10,7 +10,12 @@ function config(env){
   const names=['PIN_PEPPER','TEAM_PIN_PEPPER','WS_SIGNING_KEY','WS_SERVICE_KEY'];
   const keys=names.map(k=>env[k]);
   if(keys.some(k=>typeof k!=='string'||new TextEncoder().encode(k).length<32)||new Set(keys).size!==keys.length||keys.includes(env.MASTER_KEY))return null;
-  let grants={};
+  // Sync4 C16 default least-privilege Team grants when WS_QA_ROLE_GRANTS is unset.
+  // Explicit WS_QA_ROLE_GRANTS env always overrides; ws-capability-issuer still enforces CEILING.
+  let grants={
+    admin:['cat:read','ops:sale','ops:adjust','ops:payment','fotos:read'],
+    empleado:['cat:read','ops:sale','ops:payment','fotos:read']
+  };
   try{if(env.WS_QA_ROLE_GRANTS!==undefined)grants=JSON.parse(env.WS_QA_ROLE_GRANTS);if(!grants||typeof grants!=='object'||Array.isArray(grants)||Object.entries(grants).some(([role,scopes])=>!['admin','empleado','contador','artista'].includes(role)||!Array.isArray(scopes)||scopes.length>8||scopes.some(s=>typeof s!=='string')))return null;}catch(_){return null;}
   return {grants};
 }

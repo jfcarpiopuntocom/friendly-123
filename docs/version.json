@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.94",
+  "version": "v0.8.95",
   "fecha": "2026-11-22",
-  "changelog": "v0.8.94 C212: boton Reenganchar visible justo debajo de CLEAR / FORGOT? en el PIN;",
+  "changelog": "v0.8.95 C213 Sync4: dueno, admin y empleados pasan a la arquitectura 2.0; PIN de admin/empleado se verifica en el panel central en aparatos nuevos (parches de Gemini Neon 01,02,06-10).",
   "requerida": false,
-  "shell": "f123-shell-v894",
+  "shell": "f123-shell-v895",
   "apagar": [],
-  "releaseName": "v0.8.94",
-  "cacheGeneration": "golden430"
+  "releaseName": "v0.8.95",
+  "cacheGeneration": "golden431"
 }

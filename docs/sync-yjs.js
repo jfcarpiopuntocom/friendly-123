@@ -3439,14 +3439,15 @@
         var authQa = typeof window !== "undefined" ? window.OCAuth : null;
         var demoQa = authQa && typeof authQa.esDemo === "function" ? authQa.esDemo() === true : false;
         var rolQa = authQa && typeof authQa.rolActual === "function" ? String(authQa.rolActual() || "").trim().toLowerCase() : "";
-        if (demoQa || (rolQa !== "dueno" && rolQa !== "admin")) return;
+        if (demoQa || (rolQa !== "dueno" && rolQa !== "admin" && rolQa !== "empleado")) return;
         var released = !!(API.rollout && API.rollout.yparty === true);
         // Do not sever an existing device's live relay while local Yjs
         // ancestry or the durable ops notebook is still being hydrated.
+        var sync4Direct = !!(API.rollout && (API.rollout.sync4 === true || API.rollout.frozenHead === "sala-vacia"));
         if (released && (document.hidden || !API.idb || API.idb.synced !== true ||
             !API.opsIdb || API.opsIdb.synced !== true ||
             !API.doc || API.doc.isDestroyed ||
-            (API.doc.store && (API.doc.store.pendingStructs || API.doc.store.pendingDs)))) return;
+            (!sync4Direct && API.doc.store && (API.doc.store.pendingStructs || API.doc.store.pendingDs)))) return;
         var relay = window.OCSyncControl;
         var licencia = API.codigoCuaderno;
         API.__reactivandoCorte20 = Promise.resolve().then(async function () {
@@ -3457,7 +3458,7 @@
             if (!paused || paused.ok !== true) return null;
             API.__transporteLegado20Pausado = licencia;
           }
-          return API.activarCorte20Runtime({ cortarComercio: true });
+          return API.activarCorte20Runtime({ cortarComercio: true, rol: rolQa, permitirDespachoEquipo: rolQa === "admin" || rolQa === "empleado" });
         }).then(function (resultado) {
           if (!released || (resultado && resultado.modoCorte20Activo === true)) return;
           var previous = API.__transporteLegado20Pausado;

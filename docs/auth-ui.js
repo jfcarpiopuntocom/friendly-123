@@ -1357,6 +1357,43 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     if(central==="unavailable-identity"&&rolHash==="dueno"){
       error("La identidad de la licencia no coincide con el registro central. Recupera la licencia desde el panel.");return;
     }
+    // Sync4 C17: resolve Admin/Employee PIN centrally via JFC panel (/team/verify) so
+    // brand-new or linked devices unlock immediately without waiting on legacy Sync3.
+    if ((!rolHash || rolHash === "empleado") && dispositivoApropiado() && central !== "owner" &&
+        !/^localhost$|^127.0.0.1$|^fixture.invalid$/.test(location.hostname) &&
+        !(typeof navigator !== "undefined" && navigator.onLine === false) && !_cbBloqueado()) {
+      try {
+        const ownC17 = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+        const licC17 = String(ownC17.licenseCode || "").trim().toUpperCase();
+        const instC17 = String(ownC17.instanceId || "").trim();
+        const epC17 = new URL(OC_WORKER_URL);
+        if (/^F123-[A-Z0-9*~$=-]{8,34}$/.test(licC17) && instC17 &&
+            epC17.protocol === "https:" && epC17.hostname === "friendly123-licencias.jfcarpio.workers.dev") {
+          const ctrlC17 = new AbortController(), tC17 = setTimeout(() => ctrlC17.abort(), 2400);
+          try {
+            const rTeam = await fetch(epC17.origin + "/team/verify", {
+              method: "POST", mode: "cors", cache: "no-store", signal: ctrlC17.signal,
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ licenseCode: licC17, instanceId: instC17, pin: String(code) })
+            });
+            if (rTeam && rTeam.status === 429) { error("Acceso bloqueado temporalmente por seguridad."); return; }
+            const dTeam = rTeam && rTeam.ok ? await rTeam.json().catch(() => null) : null;
+            if (dTeam && dTeam.ok === true && dTeam.principal &&
+                (dTeam.principal.role === "admin" || dTeam.principal.role === "empleado")) {
+              window.__f123CentralTeamPrincipal = Object.freeze({
+                subject: dTeam.principal.subject,
+                role: dTeam.principal.role,
+                roleRevision: dTeam.principal.roleRevision,
+                pin: String(code)
+              });
+              registrarExito();
+              try { window.OCSecure.limpiarLockouts && window.OCSecure.limpiarLockouts(); } catch (_) {}
+              return alinearYEntrar(code, dTeam.principal.role);
+            }
+          } finally { clearTimeout(tC17); }
+        }
+      } catch (_) {}
+    }
     /* v660 (critic A #3, 2026-11-04; JFC: no customer loses access, local-first): with no network the Owner enters with
        the PIN this device holds. Once a central revision was seen, that local Owner PIN is the one the central authority
        last confirmed and adopted here (adoptarPinOwnerCentralVerificado), so an outage never locks the owner out.

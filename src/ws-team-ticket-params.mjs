@@ -7,17 +7,20 @@ const ISSUER = 'https://friendly123-licencias.jfcarpio.workers.dev/ws/ticket';
 const LICENSE = /^F123-[A-Z0-9*~$=-]{8,34}$/;
 const INSTANCE = /^[A-Za-z0-9_-]{6,120}$/;
 const SUBJECT = /^[A-Za-z0-9_-]{5,120}$/;
+const CAT_ROOM = /^[a-f0-9]{32}-cat$/;
 const OPS_ROOM = /^[a-f0-9]{32}-ops$/;
 const FOTOS_ROOM = /^[a-f0-9]{32}-fotos$/;
 const PIN = /^\d{3}$/;
 
-// Single-scope HTTP permissions matching server ws-authority-client.js.
+// Single-scope permissions matching server ws-capability-issuer.mjs CEILING (Sync4 C16).
+// Team gets read-only -cat (cat:read), never cat:write, priv:*, or fotos:write.
 const TEAM_ROLE_SCOPES = Object.freeze({
-  admin: Object.freeze(['ops:sale', 'ops:adjust', 'ops:payment', 'fotos:read']),
-  empleado: Object.freeze(['ops:sale', 'ops:payment', 'fotos:read'])
+  admin: Object.freeze(['cat:read', 'ops:sale', 'ops:adjust', 'ops:payment', 'fotos:read']),
+  empleado: Object.freeze(['cat:read', 'ops:sale', 'ops:payment', 'fotos:read'])
 });
 
 const SCOPE_ROOM_MATCH = Object.freeze({
+  'cat:read': CAT_ROOM,
   'ops:sale': OPS_ROOM,
   'ops:adjust': OPS_ROOM,
   'ops:payment': OPS_ROOM,

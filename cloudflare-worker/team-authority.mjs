@@ -56,26 +56,58 @@ export function teamAuthority({storage,ownerAuthority,secret,readInstance,clock=
   }
   async function verify(input){
     const id=identity(input);
-    if(!id||!SUBJECT.test(input.subject||'')||!validPin(input.pin))return deny('invalid-input');
+    const hasSubject=input&&input.subject!==undefined&&input.subject!==null&&input.subject!=='';
+    if(!id||(hasSubject&&!SUBJECT.test(input.subject||''))||!validPin(input.pin))return deny('invalid-input');
     try{
       if(!key)return deny('authority-unavailable');
       if(!await registered(id))return deny('license-instance-mismatch');
-      const candidate=await pinDigest(id.license,input.subject,input.pin);
+      if(hasSubject){
+        const candidate=await pinDigest(id.license,input.subject,input.pin);
+        return await storage.transaction(async tx=>{
+          if(!await registered(id,tx))return deny('license-instance-mismatch');
+          const now=clock();if(!Number.isSafeInteger(now)||now<0)return deny('authority-unavailable');
+          const state=await tx.get(stateKey(id.license))||fresh(),m=member(state,input.subject);
+          if(!m||!m.active)return deny('team-not-verified');
+          const attemptsKey='team-attempts-v1:'+id.license+':'+input.subject;
+          let guard=await tx.get(attemptsKey);
+          if(!guard||now<guard.start||now-guard.start>=900000)guard={start:now,attempts:0};
+          if(guard.attempts>=10)return deny('rate-limited');
+          if(!same(m.fingerprint,candidate)){
+            await tx.put(attemptsKey,{start:guard.start,attempts:guard.attempts+1});
+            return deny(guard.attempts+1>=10?'rate-limited':'team-not-verified');
+          }
+          await tx.delete(attemptsKey);
+          const principal=Object.freeze({...id,subject:m.subject,role:m.role,roleRevision:state.revision,sessionEpoch:state.revision,verifiedAt:now});
+          verified.add(principal);
+          return{ok:true,principal};
+        });
+      }
+      // Sync4 C17: PIN-only lookup for brand-new/linked devices unlocking via 3-digit keypad.
+      // PIN uniqueness is enforced at update() time; evaluates all active members in constant time.
+      const preState=await storage.get(stateKey(id.license))||fresh();
+      const activeMembers=Object.values(preState.members||{}).filter(m=>m&&m.active);
+      const digests=new Map();
+      for(const m of activeMembers){digests.set(m.subject,await pinDigest(id.license,m.subject,input.pin));}
       return await storage.transaction(async tx=>{
         if(!await registered(id,tx))return deny('license-instance-mismatch');
         const now=clock();if(!Number.isSafeInteger(now)||now<0)return deny('authority-unavailable');
-        const state=await tx.get(stateKey(id.license))||fresh(),m=member(state,input.subject);
-        if(!m||!m.active)return deny('team-not-verified');
-        const attemptsKey='team-attempts-v1:'+id.license+':'+input.subject;
+        const attemptsKey='team-attempts-v1:'+id.license+':__pin__';
         let guard=await tx.get(attemptsKey);
         if(!guard||now<guard.start||now-guard.start>=900000)guard={start:now,attempts:0};
         if(guard.attempts>=10)return deny('rate-limited');
-        if(!same(m.fingerprint,candidate)){
+        const state=await tx.get(stateKey(id.license))||fresh();
+        let matched=null;
+        for(const m of Object.values(state.members||{})){
+          if(!m||!m.active)continue;
+          const cand=digests.get(m.subject);
+          if(cand&&same(m.fingerprint,cand)&&!matched)matched=m;
+        }
+        if(!matched){
           await tx.put(attemptsKey,{start:guard.start,attempts:guard.attempts+1});
           return deny(guard.attempts+1>=10?'rate-limited':'team-not-verified');
         }
         await tx.delete(attemptsKey);
-        const principal=Object.freeze({...id,subject:m.subject,role:m.role,roleRevision:state.revision,sessionEpoch:state.revision,verifiedAt:now});
+        const principal=Object.freeze({...id,subject:matched.subject,role:matched.role,roleRevision:state.revision,sessionEpoch:state.revision,verifiedAt:now});
         verified.add(principal);
         return{ok:true,principal};
       });
