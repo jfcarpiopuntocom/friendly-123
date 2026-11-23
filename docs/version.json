@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.93",
+  "version": "v0.8.94",
   "fecha": "2026-11-22",
-  "changelog": "C210 Safari: reenganche visible junto al PIN, ruta independiente para salir de shell cacheada v890, navegación HTML network-first manteniendo offline.",
+  "changelog": "C212 Gemini Neon: Today starts only after verified PIN; bounded date formatter cache, indexed historical returns and duplicate journal fast path. Sync4 architecture unchanged.",
   "requerida": false,
-  "shell": "f123-shell-v893",
+  "shell": "f123-shell-v894",
   "apagar": [],
-  "releaseName": "v0.8.93",
-  "cacheGeneration": "golden429"
+  "releaseName": "v0.8.94",
+  "cacheGeneration": "golden430"
 }
