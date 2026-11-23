@@ -55,10 +55,10 @@ jobs:
           const nextUnused=(pattern,base)=>
             Math.max(base,...[...usedHistory.matchAll(pattern)].map(m=>Number(m[1])))+1;
           assert.equal(num(v.shell),
-            nextUnused(/f123-shell-v(\d+)/g,num(old.shell)),
+            nextUnused(/^[+-]\s*"shell":\s*"f123-shell-v(\d+)"/gm,num(old.shell)),
             'release shell must be the next never-used shell in master history');
           assert.equal(num(v.cacheGeneration),
-            nextUnused(/golden(\d+)/g,num(old.cacheGeneration)),
+            nextUnused(/^[+-]\s*"cacheGeneration":\s*"golden(\d+)"/gm,num(old.cacheGeneration)),
             'cache generation must be the next never-used generation in master history');
           assert.equal(m.version,v.version);assert.equal(m.shell,v.shell);
           const vendor=fs.readFileSync('docs/vendor/yparty-piloto.min.js');
