@@ -1,0 +1,33 @@
+name: Belén v0.9.22 exact-head WebKit E2E (isolated)
+on:
+  push:
+    branches:
+      - qa/belen-v922-webkit-20261123
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  commercial-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install test dependencies and WebKit
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps webkit
+      - name: Check exact v922 source, bundles, and release manifest
+        run: |
+          set -euo pipefail
+          node -e "const x=require('./docs/version.json'); if(x.version!=='v0.9.22'||x.shell!=='f123-shell-v922') process.exit(1)"
+          node --test test/p0-c212-source-served-parity.test.cjs test/p0-c34-real-sale-envelope-contract.test.cjs test/p0-belen-20261123-three-flows.test.cjs
+          node scripts/gen-manifest.js
+          git diff --exit-code docs/version-manifest.json
+          bash check-sw.sh
+      - name: Actual WebKit credit partial payment and historic Sold E2E (synthetic only)
+        run: node --test --test-timeout=120000 test/p0-belen-20261123-three-flows-browser.test.cjs
