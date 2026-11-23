@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.91",
+  "version": "v0.8.92",
   "fecha": "2026-11-22",
-  "changelog": "v0.8.91 Sync3: corrige concurrencia de activación 2.0, resguardo de opId durante failback y cierre de sesiones obsoletas; mantiene canal privado cifrado y la tienda existente.",
+  "changelog": "v0.8.92 C209: corrige el teclado PIN apilado por UI2 y las carreras de doble recarga durante el reenganche manual de la version.",
   "requerida": false,
-  "shell": "f123-shell-v891",
+  "shell": "f123-shell-v892",
   "apagar": [],
-  "releaseName": "v0.8.91",
-  "cacheGeneration": "golden427"
+  "releaseName": "v0.8.92",
+  "cacheGeneration": "golden428"
 }
