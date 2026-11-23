@@ -81,15 +81,20 @@ test('WebKit real backend: historic Sold keeps June business date and real audit
       const first=await post(url,{cantidad:1,opId,info:{formaPago:'cash',fechaVenta:'2026-06-23'}});
       const conflict=await post(url,{cantidad:1,opId,info:{formaPago:'cash',fechaVenta:'2026-07-23'}});
       const backup=await (await fetch('/api/respaldo/exportar')).json();
+      const sold=await (await fetch('/api/ventas/todas?ubicacionId=todas')).json();
       const sales=(backup.ventas||[]).filter(v=>v.productoId===product.body.id);
+      const soldRows=(Array.isArray(sold)?sold:[]).filter(v=>v.productoId===product.body.id);
       const productAfter=(backup.productos||[]).find(p=>p.id===product.body.id);
-      return {first,conflict,sales,stock:productAfter&&productAfter.stockActual};
+      return {first,conflict,sales,soldRows,stock:productAfter&&productAfter.stockActual};
     });
     assert.ok(result.first.status>=200&&result.first.status<300,JSON.stringify(result.first));
     assert.equal(result.conflict.status,409,'same sale opId cannot change its business date');
     assert.equal(result.sales.length,1,'one historic sale, not two');
     assert.equal(result.sales[0].fecha.slice(0,10),'2026-06-23');
     assert.equal(result.sales[0].info.fechaVenta,'2026-06-23');
+    assert.equal(result.soldRows.length,1,'Sold list must show exactly one business sale');
+    assert.equal(result.soldRows[0].fecha.slice(0,10),'2026-06-23',
+      'Sold must display the historic commercial month, not registration month');
     const recorded=new Date(result.sales[0].registradaEn).getTime();
     assert.ok(Number.isFinite(recorded) && Math.abs(Date.now()-recorded)<120000,
       'actual registration timestamp remains current');
