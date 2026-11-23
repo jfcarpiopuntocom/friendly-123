@@ -1,0 +1,59 @@
+name: Belén · compile exact served JS and manifest (one-shot PR branch)
+on:
+  push:
+    branches:
+      - fix/belen-three-flows-20261123
+    paths:
+      - '.github/workflows/regen-belen-bundles.yml'
+permissions:
+  contents: write
+jobs:
+  exact-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/belen-three-flows-20261123
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compile only the two edited served scripts with the repository's esbuild recipe
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node - <<'NODE'
+          const fs=require('node:fs'),esbuild=require('esbuild');
+          for(const [src,dest] of [
+            ['src/app/app-inline-01.js','docs/app-inline-01.min.js'],
+            ['docs/mock-backend.js','docs/mock-backend.min.js']
+          ]){
+            const content=fs.readFileSync(src,'utf8').replace(/\r\n/g,'\n');
+            const output=esbuild.transformSync(content,{
+              loader:'js',target:'es2020',minifySyntax:true,minifyWhitespace:true,
+              minifyIdentifiers:false,legalComments:'none'
+            }).code;
+            fs.writeFileSync(dest,output,'utf8');
+          }
+          NODE
+          node scripts/gen-manifest.js
+          node --test test/p0-belen-20261123-three-flows.test.cjs test/p0-c212-source-served-parity.test.cjs test/entry-assets.test.cjs test/p0-c34-real-sale-envelope-contract.test.cjs
+          bash check-sw.sh
+      - name: Verify only the three expected generated files changed
+        run: |
+          set -euo pipefail
+          git diff --name-only > /tmp/belen-changed.txt
+          cat /tmp/belen-changed.txt
+          if grep -v -E '^docs/(app-inline-01\.min\.js|mock-backend\.min\.js|version-manifest\.json)$' /tmp/belen-changed.txt; then
+            echo 'Unexpected generated changes; abort commit' >&2; exit 1
+          fi
+      - name: Persist compiled sources and exact SHA manifest on the requested PR branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/app-inline-01.min.js docs/mock-backend.min.js docs/version-manifest.json
+          if ! git diff --cached --quiet; then
+            git commit -m "build(belen): exact esbuild bundles and v0.9.21 SHA manifest"
+            git push origin HEAD:fix/belen-three-flows-20261123
+          fi
