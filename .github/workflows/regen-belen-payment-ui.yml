@@ -1,0 +1,55 @@
+name: Belén one-shot compile real payment UI and SHA manifest
+on:
+  push:
+    branches:
+      - fix/belen-three-flows-20261123
+    paths:
+      - '.github/workflows/regen-belen-payment-ui.yml'
+permissions:
+  contents: write
+jobs:
+  exact-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/belen-three-flows-20261123
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate only payment UI served bundle from source with canonical build options
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          node <<'NODE'
+          const fs=require('node:fs'), esbuild=require('esbuild');
+          const input=fs.readFileSync('docs/plan-pagos-ui.js','utf8').replace(/\r\n/g,'\n');
+          const output=esbuild.transformSync(input,{
+            loader:'js',target:'es2020',minifySyntax:true,minifyWhitespace:true,
+            minifyIdentifiers:false,legalComments:'none'
+          }).code;
+          fs.writeFileSync('docs/plan-pagos-ui.min.js',output,'utf8');
+          NODE
+          node scripts/gen-manifest.js
+          node scripts/build-min-scripts.cjs --check
+          bash check-sw.sh
+          node --test test/p0-belen-20261123-three-flows.test.cjs test/p0-c212-source-served-parity.test.cjs
+      - name: Verify only required generated files changed
+        run: |
+          set -euo pipefail
+          git diff --name-only
+          if git diff --name-only | grep -v -E '^docs/(plan-pagos-ui\.min\.js|version-manifest\.json)$'; then
+            echo 'Unexpected source modified by build' >&2; exit 1
+          fi
+      - name: Persist exact compiled code and SHA manifest
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/plan-pagos-ui.min.js docs/version-manifest.json
+          if ! git diff --cached --quiet; then
+            git commit -m "build(belen): serve fixed payment UI minified source and checksum"
+            git push origin HEAD:fix/belen-three-flows-20261123
+          fi
