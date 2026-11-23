@@ -49,6 +49,7 @@ jobs:
         run: |
           set -euo pipefail
           node --test test/p0-c200-initial-dashboard-after-auth.test.cjs test/p0-c197-opera-dashboard-hotpath.test.cjs
+          node --test test/p0-c212-source-served-parity.test.cjs
           node --test test/p0-c210-safari-release.test.cjs test/p0-c209-pin-layout-and-update.test.cjs test/p0-c209-reengage-lifecycle.test.cjs test/p0-c180-version-adoption.test.cjs
       - name: Browser PIN regressions in real WebKit and Chromium
         run: |
