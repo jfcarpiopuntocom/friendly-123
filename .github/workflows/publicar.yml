@@ -1,6 +1,8 @@
 # P0 release v633 cache golden180: preserve direct P2P signaling rendezvous (2026-10-31).
 # Emergency republish of unchanged-shell stable safety patch: 2026-10-31.
 # publicar.yml — GitHub Pages con TRES CANALES (plan canarios F2, JFC 2026-09-25).
+# C211 recovery: republish unchanged stable v0.8.93 after concurrent hotfix had already promoted it.
+# Editing this workflow alone triggers its existing master-push recovery route; no shell bump.
 #   Raiz  /friendly-123/       = rama `estable`  -> CLIENTES REALES.
 #   /friendly-123/next/        = rama `master`   -> CANARIO (aparatos lord de JFC).
 #   /friendly-123/previo/      = rama `previo`   -> estable anterior (rewind; se omite si no existe).
