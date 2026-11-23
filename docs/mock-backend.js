@@ -7979,13 +7979,12 @@
         // CASH, list-price, non-credit/non-courtesy, non-deficit sales qualify.
         // All other sales retain their original legacy stock event and never
         // invent business-committed cash on the typed DO.
-        const _metodo20 = String(infoVenta.formaPago || "").trim().toLowerCase();
+        // Typed 2.0 sale.record has no effective-date contract. The legacy
+        // stock/catalog path preserves the historical sale without misdating cash.
+        const _metodo20 = infoVenta.fechaVenta ? "" : String(infoVenta.formaPago || "").trim().toLowerCase();
         const _unit20 = Math.round(precioEfectivo * 100);
         const _total20 = Math.round(montoBruto * 100);
-        // The typed sale.record contract has no historical effectiveDate field.
-        // A backdated sale remains a durable catalog/stock fact until that
-        // contract can preserve its real commercial date end-to-end.
-        if (!_fechaVentaIso && (_metodo20 === "cash" || _metodo20 === "efectivo") &&
+        if ((_metodo20 === "cash" || _metodo20 === "efectivo") &&
             !_esCortesia && infoVenta.fiadoAtomico !== true &&
             (infoVenta.montoPagado === null ||
               (Number.isFinite(infoVenta.montoPagado) && Math.round(infoVenta.montoPagado * 100) === _total20)) &&
