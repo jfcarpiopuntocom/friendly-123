@@ -125,3 +125,35 @@ test('missing or invalid license rejects before any transport send',async()=>{
   await assert.rejects(c.publish({license:'another-license',opId:'sale_12345678'}),/license/);
   assert.equal(sent,0);
 });
+
+test('concurrent identical opId sends once and shares the verified receipt',async()=>{
+  let sends=0;
+  let release;
+  const wait=new Promise(resolve=>{release=resolve;});
+  const c=createSilentTransportCascade({routes:[
+    route('A',async op=>{sends++;await wait;return {ack:true,opId:op.opId,authority:'same-do',durable:true}})
+  ]});
+  const op={license:'F123-TEST00000',opId:'sale_concurrent_123'};
+  const a=c.publish(op);
+  const b=c.publish({...op});
+  release();
+  const [one,two]=await Promise.all([a,b]);
+  assert.equal(sends,1);
+  assert.equal(one.confirmed,true);
+  assert.deepEqual(one,two);
+});
+
+test('concurrent same opId with different payload is rejected before second send',async()=>{
+  let sends=0;
+  let release;
+  const wait=new Promise(resolve=>{release=resolve;});
+  const c=createSilentTransportCascade({routes:[
+    route('A',async op=>{sends++;await wait;return {ack:true,opId:op.opId,authority:'same-do',durable:true}})
+  ]});
+  const op={license:'F123-TEST00000',opId:'sale_conflict_123',amountCents:100};
+  const first=c.publish(op);
+  await assert.rejects(c.publish({...op,amountCents:200}),/opId reused/);
+  release();
+  assert.equal((await first).confirmed,true);
+  assert.equal(sends,1);
+});
