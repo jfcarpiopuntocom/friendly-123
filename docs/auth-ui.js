@@ -775,6 +775,16 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         _purgeBtn.disabled = true;
         _purgeBtn.style.opacity = "1";
         _purgeBtn.textContent = "Purging…";
+        /* C217 (JFC 22 nov 2026: "lo que importaba era devolverle la EFECTIVIDAD a ese boton en EMERGENCY RECOVERY";
+           "no es ningun rescate, es forzar la version actual"): el boton de siempre fuerza la version actual con reenganchar.html, probada en WebKit/Chromium contra un service
+           worker viejo cache-first (test/p0-c210-safari-legacy-rescue.browser.cjs): comprueba la version en la red,
+           desregistra SOLO el SW de esta app, borra SOLO caches f123-shell-vN y hace UNA navegacion a la version nueva.
+           Nunca toca IndexedDB, localStorage ni sessionStorage de negocio (PRIME DIRECTIVE 1). La limpieza en pagina
+           de abajo queda como respaldo si esta navegacion no se puede hacer. */
+        try {
+          location.replace(new URL("./reenganchar.html?desde=emergencia&t=" + Date.now(), location.href).href);
+          return;
+        } catch (eRescate) { console.warn("[f123] purge: forzar version actual no disponible, limpieza en pagina", eRescate); }
         if (log) log.innerHTML = "";
         /* FORTIFICADO (JFC 2026-09-22): telefonos viejos (Safari iOS 2015-2018,
            WebViews Android viejos) se quedaban COLGADOS en "Purging..." porque
