@@ -60,6 +60,26 @@ test('WebKit real UI: one $10 payment on one $35 debt leaves exactly $25 owed an
     assert.equal(result.items.length,1);
     assert.equal(result.items[0].pendiente,25,'the selected purchase remains partly outstanding');
     assert.equal(await page.locator('#pp-modal-abono').count(),0);
+    // A subsequent independent $25 payment settles the credit without
+    // repeating the old $10 receipt or changing any sold inventory.
+    await page.evaluate(id => window.abonarCliente(id,'Synthetic'),fixture.customerId);
+    await page.waitForFunction(() => {
+      const m=document.querySelector('#pp-modal-abono');
+      return m && !m.querySelector('#pp-ab-ok').disabled &&
+        !!m.querySelector('#pp-ab-consumos .pp-chip');
+    });
+    await page.locator('#pp-ab-consumos .pp-chip').first().click();
+    assert.equal(await page.locator('#pp-ab-monto').inputValue(),'25.00');
+    await page.locator('#pp-ab-ok').click();
+    await page.waitForFunction(() => !document.querySelector('#pp-modal-abono'));
+    const settled=await page.evaluate(async id=>{
+      const r=await fetch('/api/clientes/'+id+'/cartera');
+      const data=await r.json();
+      return {status:r.status,saldo:data.saldo,pendientes:data.consumosPendientes};
+    },fixture.customerId);
+    assert.equal(settled.status,200);
+    assert.equal(settled.saldo,0,'second $25 payment settles the original $35');
+    assert.equal(settled.pendientes.length,0);
   } finally { await browser.close(); }
 });
 
@@ -99,5 +119,58 @@ test('WebKit real backend: historic Sold keeps June business date and real audit
     assert.ok(Number.isFinite(recorded) && Math.abs(Date.now()-recorded)<120000,
       'actual registration timestamp remains current');
     assert.equal(result.stock,1,'sale subtracts stock once, even after conflicting retry');
+  } finally { await browser.close(); }
+});
+
+
+test('WebKit reproduces Belén screenshot: $35 pending RESUME OPERATION can become $10 only before payment write-ahead exists', async () => {
+  const browser=await webkit.launch({headless:true});
+  try {
+    const page=await openShop(browser);
+    const customerId=await page.evaluate(async () => {
+      const id='belen-resume-'+Date.now();
+      const post=async(url,body)=>{
+        const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const value=await r.json();
+        if(!r.ok) throw Error('Fixture '+url+' '+JSON.stringify(value));
+        return value;
+      };
+      const cli=await post('/api/clientes',{nombre:id});
+      await post('/api/clientes/'+cli.id+'/fiar',{monto:35,motivo:'Synthetic fiado',opId:'fiar-'+id});
+      const r=await fetch('/api/clientes/'+cli.id+'/cartera');
+      const cartera=await r.json();
+      const compra=cartera.consumosPendientes && cartera.consumosPendientes[0];
+      if(!compra)throw Error('Missing synthetic purchase to allocate');
+      // Recreate the exact legacy local write-ahead state from the screenshot.
+      // No payment intent has been written, so no financial POST can have run.
+      const op='customer-payment:pending-synthetic-'+id;
+      const allocation={
+        paymentOpId:op,opId:'customer-allocation:'+op.slice('customer-payment:'.length),
+        abonoId:null,partes:[{cargoKey:compra.cargoKey,monto:35}],monto:35,motivo:'Abono'
+      };
+      localStorage.setItem('f123_customer_allocation_intent_v1:'+cli.id,JSON.stringify(allocation));
+      window.abonarCliente(cli.id,id);
+      return cli.id;
+    });
+    await page.locator('#pp-ab-change').waitFor({state:'visible',timeout:20000});
+    assert.equal(await page.locator('#pp-ab-monto').isDisabled(),true,'original $35 is locked behind resume');
+    assert.match(await page.locator('#pp-ab-ok').innerText(),/Resume|Reanudar/i);
+    await page.locator('#pp-ab-change').click();
+    await page.waitForFunction(() => {
+      const x=document.querySelector('#pp-ab-monto');
+      return x && !x.disabled && x.value === '';
+    },null,{timeout:20000});
+    await page.locator('#pp-ab-consumos .pp-chip').first().click();
+    await page.locator('#pp-ab-monto').fill('10');
+    await page.locator('#pp-ab-ok').click();
+    await page.waitForFunction(() => !document.querySelector('#pp-modal-abono'),null,{timeout:20000});
+    const r=await page.evaluate(async id=>{
+      const x=await fetch('/api/clientes/'+id+'/cartera');
+      const info=await x.json();
+      return {status:x.status,saldo:info.saldo,consumos:info.consumosPendientes};
+    },customerId);
+    assert.equal(r.status,200);
+    assert.equal(r.saldo,-25,'exact reported $35 debt minus $10 payment');
+    assert.equal(r.consumos[0].pendiente,25);
   } finally { await browser.close(); }
 });
