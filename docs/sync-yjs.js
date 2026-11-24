@@ -3710,7 +3710,8 @@
       } catch (_) { return false; }
     };
     function _alcanceTerminales20() {
-      return String(API.codigoCuaderno || codigo || "") + "|" +
+      var cod = API.codigoCuaderno || (typeof codigo !== "undefined" ? codigo : "") || "";
+      return String(cod) + "|" +
         String(API.roomId || "") + "|" + String(API.__authEpoch20 || 0);
     }
     API.__opIdsTerminales20Cache = new Set();
@@ -3764,7 +3765,7 @@
         API.__opIdsTerminales20Scope = alcanceActual;
       }
       var set = new Set(API.__opIdsTerminales20Cache || []);
-      var licActual = String(API.codigoCuaderno || codigo || "").trim().toUpperCase();
+      var licActual = String(API.codigoCuaderno || (typeof codigo !== "undefined" ? codigo : "") || "").trim().toUpperCase();
       if (API.recibosComerciales20 && typeof API.recibosComerciales20.forEach === "function") {
         API.recibosComerciales20.forEach(function (entry, id) {
           if (entry && entry.committed === true && entry.stage === "business-committed" && id) {

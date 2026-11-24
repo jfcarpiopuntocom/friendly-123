@@ -543,7 +543,8 @@ const _ocActSolaOn = true;
   // E2: a takeover can already match version.json while this document is stale.
   var ultimoControladorSW = tieneSW ? navigator.serviceWorker.controller : null;
   function onShellTomado() {
-    if (!tieneSW || window.__f123PurgeEnCurso === true) return;
+    if (window.__f123PurgeEnCurso === true) return;
+    if (!tieneSW) return;
     if (manualPurgeReentry) {
       try { sessionStorage.setItem(KP, "1"); } catch (_) {}
       revisar();
