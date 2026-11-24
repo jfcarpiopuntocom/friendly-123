@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.25",
+  "version": "v0.9.26",
   "fecha": "2026-11-24",
-  "changelog": "v0.9.25 higiene de seguridad: política Content-Security-Policy (CSP) verificada sin eval/object/base hijacking y cero violaciones en Chromium y WebKit; alineación de pruebas central-pin (C218), incremental Yjs (C186) y comisiones por producto (C251).",
+  "changelog": "v0.9.26 rendimiento Belén: filtros de Commissions con render diferido al abrir cada desplegable y conmutación incremental por grupo sin reconstruir ni clonar vistas activas (corrige lentitud 6x-8x introducida en PR #1099/#1105).",
   "requerida": false,
-  "shell": "f123-shell-v925",
+  "shell": "f123-shell-v926",
   "apagar": [],
-  "releaseName": "v0.9.25",
-  "cacheGeneration": "golden463"
+  "releaseName": "v0.9.26",
+  "cacheGeneration": "golden464"
 }

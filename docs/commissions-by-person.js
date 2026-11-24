@@ -339,6 +339,45 @@
       b.classList.toggle('hundida',active);
     });
   }
+  function filterOnce(sales) {
+    var H=root.OCCommissionHistory;
+    if (H && typeof H.filterSales==='function') {
+      return H.filterSales({sales:sales,from:root._ocComDesde||'',to:root._ocComHasta||'',filtros:root._ocComFiltros||{}});
+    }
+    return sales;
+  }
+  function buildSecondarySection(g, filteredSales, detailRows) {
+    root._ocComHistoryGroup=g;
+    var prevOmit=root._ocComOmitirFiltros, prevFilt=root._ocComVentasFiltradas;
+    root._ocComOmitirFiltros=true;
+    root._ocComVentasFiltradas=filteredSales;
+    var rawHtml;
+    try { rawHtml=originalGlobalSummary(filteredSales); }
+    finally { root._ocComOmitirFiltros=prevOmit; root._ocComVentasFiltradas=prevFilt; }
+    var holder=document.createElement('div');
+    holder.innerHTML=rawHtml;
+    var panel=holder.querySelector('[data-commissions-summary="all"]');
+    if (!panel) return null;
+    var rows=root._ocComHistoryRowsPorGrupo;
+    panel.querySelectorAll('[data-comm-history-group]').forEach(function(el) {
+      var oldKey=el.dataset.commGroup, key=JSON.stringify([g,oldKey]);
+      el.setAttribute('data-comm-group',key);
+      if (rows && rows.has(oldKey)) detailRows.set(key,rows.get(oldKey));
+    });
+    var section=document.createElement('section');
+    section.dataset.commissionsSummary='all';
+    section.dataset.commissionsCurrentView=g;
+    var title=panel.querySelector('h3.seccion');
+    if (title) section.appendChild(title);
+    var cards=panel.querySelectorAll('[data-comm-history-group]');
+    cards.forEach(function(card){section.appendChild(card);});
+    if (!cards.length) {
+      var empty=document.createElement('p');
+      empty.textContent=tx('No hay ventas registradas en esta vista.','No recorded sales in this view.');
+      section.appendChild(empty);
+    }
+    return section;
+  }
   var originalGlobalSummary=root.resumenComisionesGlobalHtml;
   if (typeof originalGlobalSummary==='function') {
     root.resumenComisionesGlobalHtml=function(sales) {
@@ -349,35 +388,24 @@
       }
       // Each renderer uses the same audited projection with a different
       // GROUP. Keep lazy details keyed by [group,id] to prevent collisions.
-      var parts=[],detailRows=new Map();
+      var parts=[],detailRows=new Map(),filteredSales=filterOnce(sales);
       chosen.forEach(function(g,i) {
-        root._ocComHistoryGroup=g;
-        var holder=document.createElement('div');
-        holder.innerHTML=originalGlobalSummary(sales);
-        var panel=holder.querySelector('[data-commissions-summary="all"]');
-        if (!panel) return;
-        var rows=root._ocComHistoryRowsPorGrupo;
-        panel.querySelectorAll('[data-comm-history-group]').forEach(function(el) {
-          var oldKey=el.dataset.commGroup, key=JSON.stringify([g,oldKey]);
-          el.setAttribute('data-comm-group',key);
-          if (rows && rows.has(oldKey)) detailRows.set(key,rows.get(oldKey));
-        });
         if (i===0) {
+          root._ocComHistoryGroup=g;
+          var holder=document.createElement('div');
+          holder.innerHTML=originalGlobalSummary(sales);
+          var panel=holder.querySelector('[data-commissions-summary="all"]');
+          if (!panel) return;
+          var rows=root._ocComHistoryRowsPorGrupo;
+          panel.querySelectorAll('[data-comm-history-group]').forEach(function(el) {
+            var oldKey=el.dataset.commGroup, key=JSON.stringify([g,oldKey]);
+            el.setAttribute('data-comm-group',key);
+            if (rows && rows.has(oldKey)) detailRows.set(key,rows.get(oldKey));
+          });
           parts.push(panel.outerHTML); // Exactly one global totals/filter/search header.
         } else {
-          var section=document.createElement('section');
-          section.dataset.commissionsSummary='all';
-          section.dataset.commissionsCurrentView=g;
-          var title=panel.querySelector('h3.seccion');
-          if (title) section.appendChild(title.cloneNode(true));
-          var cards=panel.querySelectorAll('[data-comm-history-group]');
-          cards.forEach(function(card){section.appendChild(card.cloneNode(true));});
-          if (!cards.length) {
-            var empty=document.createElement('p');
-            empty.textContent=tx('No hay ventas registradas en esta vista.','No recorded sales in this view.');
-            section.appendChild(empty);
-          }
-          parts.push(section.outerHTML);
+          var section=buildSecondarySection(g, filteredSales, detailRows);
+          if (section) parts.push(section.outerHTML);
         }
       });
       root._ocComHistoryGroup=chosen[0]||'total';
@@ -389,7 +417,8 @@
   if (typeof originalGlobalToggle==='function') {
     root.cambiarRangoComisionesGlobal=function(tipo,valor) {
       if (tipo!=='grupo') return originalGlobalToggle(tipo,valor);
-      var chosen=groupSelection();
+      var prevChosen=groupSelection();
+      var chosen=prevChosen;
       if (valor==='total') chosen=[];
       else if (globalGroups.indexOf(valor)!==-1) {
         chosen=globalGroups.filter(function(g) {
@@ -408,7 +437,53 @@
       }
       var sales=root._ocComHistorySales;
       if (Array.isArray(sales) && typeof root.resumenComisionesGlobalHtml==='function') {
-        var existing=container.querySelectorAll('[data-commissions-summary="all"]');
+        var existing=Array.prototype.slice.call(container.querySelectorAll('[data-commissions-summary="all"]'));
+        // Incremental DOM update when the primary header section stays unchanged:
+        // avoids re-rendering and re-parsing all other active groups on every tap.
+        if (existing.length && chosen.length>=1 && prevChosen.length>=1 &&
+            existing[0].dataset.commissionsCurrentView===chosen[0] && valor!==chosen[0]) {
+          var turnedOn=chosen.indexOf(valor)!==-1;
+          var rowsMap=root._ocComHistoryRowsPorGrupo instanceof Map ? root._ocComHistoryRowsPorGrupo : new Map();
+          if (!turnedOn) {
+            existing.forEach(function(node) {
+              if (node.dataset.commissionsCurrentView===valor) node.remove();
+            });
+            var prefix='['+JSON.stringify(valor)+',';
+            rowsMap.forEach(function(_, k){ if (typeof k==='string' && k.indexOf(prefix)===0) rowsMap.delete(k); });
+            reflectGroupButtons();
+            setMode();
+            var srchOff=container.querySelector('#comm-product-search');
+            if (srchOff && srchOff.value && typeof root.filtrarComisionesGlobal==='function') root.filtrarComisionesGlobal(srchOff.value);
+            return;
+          }
+          // Transitioning 1 -> 2 groups: namespace existing[0] detail keys so they never collide.
+          if (prevChosen.length===1) {
+            var g0=chosen[0];
+            existing[0].querySelectorAll('[data-comm-history-group]').forEach(function(el) {
+              var oldKey=el.dataset.commGroup;
+              if (typeof oldKey==='string' && oldKey.indexOf('['+JSON.stringify(g0)+',')!==0) {
+                var nk=JSON.stringify([g0,oldKey]);
+                el.setAttribute('data-comm-group',nk);
+                if (rowsMap.has(oldKey)) { rowsMap.set(nk,rowsMap.get(oldKey)); rowsMap.delete(oldKey); }
+              }
+            });
+          }
+          var newSec=buildSecondarySection(valor, filterOnce(sales), rowsMap);
+          root._ocComHistoryGroup=chosen[0];
+          root._ocComHistoryRowsPorGrupo=rowsMap;
+          if (newSec) {
+            var idx=chosen.indexOf(valor), nextView=chosen[idx+1];
+            var beforeNode=nextView ? existing.find(function(n){return n.dataset.commissionsCurrentView===nextView;}) : null;
+            var anchor=beforeNode || container.querySelector('#comm-panel-person');
+            if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(newSec, anchor);
+            else container.appendChild(newSec);
+            reflectGroupButtons();
+            setMode();
+            var srchOn=container.querySelector('#comm-product-search');
+            if (srchOn && srchOn.value && typeof root.filtrarComisionesGlobal==='function') root.filtrarComisionesGlobal(srchOn.value);
+            return;
+          }
+        }
         if (existing.length) {
           var html=root.resumenComisionesGlobalHtml(sales);
           existing.forEach(function(node){node.remove();});
