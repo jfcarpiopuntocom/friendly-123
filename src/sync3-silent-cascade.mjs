@@ -19,6 +19,9 @@ export function createSilentTransportCascade({
       typeof now !== 'function') throw new TypeError('invalid cooldown or clock');
 
   const retryAfter = new Map();
+  // Serialize the same opId within this coordinator: concurrent callers must
+  // observe one transport attempt, not submit two business commands.
+  const inFlight = new Map();
   const available = route => now() >= (retryAfter.get(route.name) || 0);
   const defer = route => retryAfter.set(route.name, now() + cooldownMs);
   const unknown = opId => Object.freeze({confirmed:false,route:null,opId,
@@ -32,6 +35,26 @@ export function createSilentTransportCascade({
       });
     },
     async publish(operation) {
+      if (!operation || typeof operation.opId !== 'string' || !OP_ID.test(operation.opId) ||
+          typeof operation.license !== 'string' || !LICENSE.test(operation.license))
+        throw new TypeError('valid license and opId required');
+      const key = operation.license + ':' + operation.opId;
+      const existing = inFlight.get(key);
+      if (existing) {
+        // Never coalesce different payloads merely because their opIds match.
+        if (existing.payload !== JSON.stringify(operation))
+          throw new Error('opId reused with different payload');
+        return existing.promise;
+      }
+      const payload = JSON.stringify(operation);
+      const promise = publishOnce(operation);
+      inFlight.set(key, {payload, promise});
+      try { return await promise; }
+      finally { if (inFlight.get(key)?.promise === promise) inFlight.delete(key); }
+    }
+  });
+
+  async function publishOnce(operation) {
       if (!operation || typeof operation.opId !== 'string' || !OP_ID.test(operation.opId) ||
           typeof operation.license !== 'string' || !LICENSE.test(operation.license))
         throw new TypeError('valid license and opId required');
@@ -74,6 +97,5 @@ export function createSilentTransportCascade({
       }
       return Object.freeze({confirmed:false, route:null,opId:operation.opId,
         stage:'all-routes-unavailable'});
-    }
-  });
+  }
 }
