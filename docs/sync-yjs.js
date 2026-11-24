@@ -3141,11 +3141,13 @@
     API.corteFotosShaActivo = false;
     API.rolComercial20Activo = null;
     API.recibosComerciales20 = new Map();
+    var _comandosDespachados20 = new Map();
     API.obtenerReciboComercial20 = function (opId) {
       var id = String(opId || "").trim();
       return id ? (API.recibosComerciales20.get(id) || null) : null;
     };
-    function _registrarReciboComercial20(opId, res, comando) {
+    function _registrarReciboComercial20(opId, res) {
+      var comando = arguments.length > 2 ? arguments[2] : null;
       var id = String(opId || "").trim();
       if (!id || !res || typeof res !== "object") return null;
       var receipt = res.receipt && typeof res.receipt === "object" ? res.receipt : null;
@@ -3156,11 +3158,17 @@
       if (prev && prev.committed === true && prev.stage === "business-committed" && !incomingCommitted) {
         return prev;
       }
+      var yaEmitidoIgual = Boolean(
+        prev && prev.committed === true && prev.stage === "business-committed" && incomingCommitted &&
+        prev.receipt && receipt &&
+        String(prev.receipt.receiptId || "") === String(receipt.receiptId || "")
+      );
+      var cmdCache = _comandosDespachados20.get(id) || null;
       var cmdSnapshot = (comando && typeof comando === "object" && !Array.isArray(comando))
         ? Object.freeze(Object.assign({}, comando))
         : (res.command && typeof res.command === "object" && !Array.isArray(res.command)
           ? Object.freeze(Object.assign({}, res.command))
-          : (prev && prev.command ? prev.command : null));
+          : (cmdCache || (prev && prev.command ? prev.command : null)));
       var entry = mismatch
         ? Object.freeze({
             opId: id,
@@ -3193,12 +3201,14 @@
         if (firstKey !== undefined) API.recibosComerciales20.delete(firstKey);
       }
       API.recibosComerciales20.set(id, entry);
-      try {
-        if (typeof window !== "undefined" && typeof window.dispatchEvent === "function" &&
-            typeof CustomEvent === "function") {
-          window.dispatchEvent(new CustomEvent("oc-op-20-recibo", { detail: entry }));
-        }
-      } catch (_) {}
+      if (!yaEmitidoIgual) {
+        try {
+          if (typeof window !== "undefined" && typeof window.dispatchEvent === "function" &&
+              typeof CustomEvent === "function") {
+            window.dispatchEvent(new CustomEvent("oc-op-20-recibo", { detail: entry }));
+          }
+        } catch (_) {}
+      }
       return entry;
     }
     if (piloto && typeof piloto.crearCoordinadorCorte20 === "function") {
@@ -3296,9 +3306,17 @@
         if (!coordInicio || typeof coordInicio.submitCommercial !== "function") {
           return Promise.resolve({ committed: false, fallbackLegacy: true, stage: "coordinator-uninitialized" });
         }
-        return Promise.resolve(coordInicio.submitCommercial(comando)).then(function (res) {
+        var opIdCmd = comando && typeof comando.opId === "string" ? comando.opId.trim() : "";
+        if (opIdCmd) {
+          if (_comandosDespachados20.size >= 500) {
+            var firstCmdKey = _comandosDespachados20.keys().next().value;
+            if (firstCmdKey !== undefined) _comandosDespachados20.delete(firstCmdKey);
+          }
+          _comandosDespachados20.set(opIdCmd, Object.freeze(Object.assign({}, comando)));
+        }
+        return Promise.resolve(API.coordinadorCorte20.submitCommercial(comando)).then(function (res) {
           if (API.coordinadorCorte20 === coordInicio && (API.__authEpoch20 || 0) === epochInicio) {
-            _registrarReciboComercial20(comando && comando.opId, res, comando);
+            _registrarReciboComercial20(comando && comando.opId, res);
           }
           return res;
         }).catch(function (err) {
@@ -3310,7 +3328,7 @@
               fallbackLegacy: false,
               reconcileRequired: true,
               stage: "dispatch-rejected"
-            }, comando);
+            });
           }
           throw err;
         });
@@ -3461,6 +3479,7 @@
         API.__opIdsTerminales20Cache = new Set();
         API.__opIdsTerminales20Scope = null;
         API.recibosComerciales20 = new Map();
+        _comandosDespachados20.clear();
         API.modoCorte20Activo = false;
         API.__ultimoEstadoCorte20 = {
           activo: false,

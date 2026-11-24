@@ -32,13 +32,13 @@ test('C209 manual _purge reentry updates old SW controller in place, then allows
   };
   const gate={style:{display:'block'},getClientRects:()=>[{}]};
   const document={
-    visibilityState:'hidden',
+    visibilityState:'visible',
     getElementById:id=>id==='oc-gate'?gate:null,
     querySelectorAll:()=>[],addEventListener(){},
     body:{appendChild(){}},
     createElement:()=>({style:{},setAttribute(){},remove(){},innerHTML:''})
   };
-  const window={__f123ManualPurgeReentry:true,addEventListener(){},OCYjs:null};
+  const window={__f123ManualPurgeReentry:true,addEventListener(){},requestAnimationFrame:fn=>fn(),OCYjs:null};
   const ctx={window,navigator:{serviceWorker:sw},document,
     localStorage:st(local),sessionStorage:st(session),
     getComputedStyle:()=>({display:'block'}),

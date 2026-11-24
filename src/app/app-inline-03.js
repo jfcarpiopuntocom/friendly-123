@@ -465,7 +465,8 @@ const _ocActSolaOn = true;
     });
   }
   async function revisar() {
-    if (!tieneSW || window.__f123PurgeEnCurso === true) return;
+    if (window.__f123PurgeEnCurso === true) return;
+    if (!tieneSW) return;
     try {
       const r = await fetch("./version.json?ts=" + Date.now(), { cache: "no-store" });
       if (!r.ok) return;

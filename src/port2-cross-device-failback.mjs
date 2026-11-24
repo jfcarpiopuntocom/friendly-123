@@ -137,8 +137,8 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
 
   async function activate20() {
     if (!destroyed && isVisible() && currentMode === 'active-2.0' && catalogSession &&
-        (typeof catalogSession.isClosed !== 'function' || !catalogSession.isClosed()) &&
-        (typeof catalogSession.isActive !== 'function' || catalogSession.isActive())) {
+        typeof catalogSession.isActive === 'function' && catalogSession.isActive() &&
+        (typeof catalogSession.isClosed !== 'function' || !catalogSession.isClosed())) {
       return Object.freeze({
         ok: true,
         mode: currentMode,

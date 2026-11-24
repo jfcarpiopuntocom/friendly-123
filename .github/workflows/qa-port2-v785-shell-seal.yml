@@ -63,7 +63,7 @@ jobs:
           assert.equal(m.version,v.version);assert.equal(m.shell,v.shell);
           const vendor=fs.readFileSync('docs/vendor/yparty-piloto.min.js');
           const sha=crypto.createHash('sha256').update(vendor).digest('hex');
-          assert.equal(sha,'ae4ab4a3239c79f8b351a6b414aa308a3eb23c0bbf929dbe6bb00829b985c991');
+          assert.equal(sha,'0fdf8aab8de97a6811bf0e6923543adf81b0237a866af1d1bda171ef23f7e85a');
           assert.equal(m.files['./vendor/yparty-piloto.min.js'],'sha256-'+sha);
           const sw=fs.readFileSync('docs/sw.js','utf8');
           assert.ok(sw.includes('const CACHE = "'+v.shell+'";'),'SW must match exact released shell');
