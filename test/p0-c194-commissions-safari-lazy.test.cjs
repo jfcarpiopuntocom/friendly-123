@@ -37,8 +37,10 @@ test('C194: 12,000 sales, 240 groups: initial HTML is bounded, total money exact
   const elapsed=performance.now()-startTime;
   assert.ok(elapsed<4000,'source report must not lock browser thread for several seconds: '+elapsed.toFixed(0)+'ms');
   assert.ok(html.length<400000,'closed cards must not eagerly instantiate 12,000 receipts: '+html.length);
-  assert.equal((html.match(/data-comm-history-group/g)||[]).length,240);
-  assert.equal((html.match(/data-comm-details data-loaded="0"/g)||[]).length,240);
+  assert.equal((html.match(/data-comm-history-group/g)||[]).length,60,'initial mount is strictly capped at 60 cards for WebKit memory');
+  assert.equal((html.match(/data-comm-details data-loaded="0"/g)||[]).length,60);
+  assert.equal(ctx.window._ocComGroupsTotal,240,'all 240 groups are retained');
+  assert.match(html,/Mostrar más \(180 restantes\)/);
   assert.match(html,/Total de comisiones/);
   assert.match(html,/\$24000\.00/);
   assert.match(html,/\$120000\.00/);

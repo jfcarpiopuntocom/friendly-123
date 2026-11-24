@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.26",
+  "version": "v0.9.27",
   "fecha": "2026-11-24",
-  "changelog": "v0.9.26 rendimiento Belén: filtros de Commissions con render diferido al abrir cada desplegable y conmutación incremental por grupo sin reconstruir ni clonar vistas activas (corrige lentitud 6x-8x introducida en PR #1099/#1105).",
+  "changelog": "v0.9.27 hotfix P0 Safari WebKit: batching de 60 tarjetas iniciales en Commissions por producto con carga incremental y búsqueda global íntegra (corrige crash OOM Jetsam y recarga espontánea con tiendas grandes); timeout de 1500 ms y backoff en hechos.js para evitar bloqueo en indexedDB.databases().",
   "requerida": false,
-  "shell": "f123-shell-v926",
+  "shell": "f123-shell-v927",
   "apagar": [],
-  "releaseName": "v0.9.26",
-  "cacheGeneration": "golden464"
+  "releaseName": "v0.9.27",
+  "cacheGeneration": "golden465"
 }
