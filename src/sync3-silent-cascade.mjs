@@ -19,6 +19,8 @@ export function createSilentTransportCascade({
       typeof now !== 'function') throw new TypeError('invalid cooldown or clock');
 
   const retryAfter = new Map();
+  // A double click or two overlapping UI callers must share one transport attempt.
+  const inFlight = new Map();
   const available = route => now() >= (retryAfter.get(route.name) || 0);
   const defer = route => retryAfter.set(route.name, now() + cooldownMs);
   const unknown = opId => Object.freeze({confirmed:false,route:null,opId,
@@ -31,10 +33,18 @@ export function createSilentTransportCascade({
         available: Object.freeze(routes.filter(available).map(r => r.name))
       });
     },
-    async publish(operation) {
+    publish(operation) {
       if (!operation || typeof operation.opId !== 'string' || !OP_ID.test(operation.opId) ||
           typeof operation.license !== 'string' || !LICENSE.test(operation.license))
         throw new TypeError('valid license and opId required');
+      const key = operation.license + ':' + operation.opId;
+      const fingerprint = JSON.stringify(operation);
+      const existing = inFlight.get(key);
+      if (existing) {
+        if (existing.fingerprint !== fingerprint) throw new Error('opId payload conflict');
+        return existing.promise;
+      }
+      const promise = (async () => {
       for (const route of routes) {
         if (!available(route)) continue;
         let receipt;
@@ -74,6 +84,12 @@ export function createSilentTransportCascade({
       }
       return Object.freeze({confirmed:false, route:null,opId:operation.opId,
         stage:'all-routes-unavailable'});
+      })();
+      inFlight.set(key, {fingerprint, promise});
+      void promise.finally(() => {
+        if (inFlight.get(key)?.promise === promise) inFlight.delete(key);
+      }).catch(() => {});
+      return promise;
     }
   });
 }
