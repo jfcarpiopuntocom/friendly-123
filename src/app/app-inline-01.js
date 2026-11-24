@@ -7144,19 +7144,37 @@ let _ocComisionesSolicitud = 0;
 // C182: old Commissions card vocabulary, all-history data, no mandatory period.
 // The existing verified economic projector remains the ONLY arithmetic source.
 /* C247: cumulative filters of the all-dates view (same module and rules as the dashboard). Checkbox lists, several at once. */
+function _ocComFiltroOpcionesHtml(k,fac,sel){
+  return (fac[k]||[]).map(o=>'<label style="display:flex;align-items:center;gap:8px;min-height:44px;font-size:14px;color:#0F1923;"><input type="checkbox" value="'+escHtml(o.id)+'"'+(sel.indexOf(o.id)>=0?' checked':'')
+    +' onchange="ocComFiltroCambiar(\''+k+'\',this.value,this.checked)"> '+escHtml(o.name)+'</label>').join("");
+}
+function ocComFiltroToggle(k,el){
+  (window._ocComFiltrosAbiertos=window._ocComFiltrosAbiertos||{})[k]=!!(el&&el.open);
+  if(!el||!el.open)return;
+  const body=el.querySelector('[data-com-filtro-body]');
+  if(!body||body.dataset.rendered==='1')return;
+  const ctx=window._ocComFiltrosCtx,H=window.OCCommissionHistory;
+  if(!ctx||!H||!H.facets)return;
+  if(!ctx.fac)ctx.fac=H.facets({sales:ctx.ventas,from:ctx.from,to:ctx.to,lang:ctx.lang});
+  const sel=(ctx.filtros&&ctx.filtros[k])||[];
+  body.innerHTML=_ocComFiltroOpcionesHtml(k,ctx.fac,sel);
+  body.dataset.rendered='1';
+}
 function filtrosComisionesHtml(ventas,f){
   const es=document.documentElement.lang==="es",H=window.OCCommissionHistory;
   if(!H||!H.facets)return "";
-  const fac=H.facets({sales:ventas,from:f.from,to:f.to,lang:es?"es":"en"});
   const nombres={comisionista:es?"Comisionista":"Associate",producto:es?"Producto":"Product",percha:es?"Percha / evento":"Rack / event",cliente:es?"Cliente":"Customer"};
   const abiertos=window._ocComFiltrosAbiertos||{};let hay=!!(f.from||f.to);
+  const algunoAbierto=Object.keys(nombres).some(k=>!!abiertos[k]);
+  const fac=algunoAbierto?H.facets({sales:ventas,from:f.from,to:f.to,lang:es?"es":"en"}):null;
+  window._ocComFiltrosCtx={ventas,from:f.from,to:f.to,lang:es?"es":"en",filtros:f.filtros||{},fac};
   const listas=Object.keys(nombres).map(k=>{
     const sel=(f.filtros&&f.filtros[k])||[];if(sel.length)hay=true;
-    return '<details data-com-filtro-lista="'+k+'"'+(abiertos[k]?' open':'')+' ontoggle="(window._ocComFiltrosAbiertos=window._ocComFiltrosAbiertos||{})[\''+k+'\']=this.open" style="min-width:150px;">'
+    const abierto=!!abiertos[k];
+    return '<details data-com-filtro-lista="'+k+'"'+(abierto?' open':'')+' ontoggle="ocComFiltroToggle(\''+k+'\',this)" style="min-width:150px;">'
       +'<summary style="min-height:44px;cursor:pointer;font-size:14px;font-weight:700;color:#0F1923;">'+nombres[k]+(sel.length?' ('+sel.length+')':'')+'</summary>'
-      +'<div style="max-height:220px;overflow:auto;padding:4px 0;">'
-      +(fac[k]||[]).map(o=>'<label style="display:flex;align-items:center;gap:8px;min-height:44px;font-size:14px;color:#0F1923;"><input type="checkbox" value="'+escHtml(o.id)+'"'+(sel.indexOf(o.id)>=0?' checked':'')
-        +' onchange="ocComFiltroCambiar(\''+k+'\',this.value,this.checked)"> '+escHtml(o.name)+'</label>').join("")
+      +'<div data-com-filtro-body="'+k+'"'+(abierto?' data-rendered="1"':'')+' style="max-height:220px;overflow:auto;padding:4px 0;">'
+      +(abierto?_ocComFiltroOpcionesHtml(k,fac,sel):"")
       +'</div></details>';}).join("");
   const inp='min-height:44px;padding:7px;border:1px solid #19354B;border-radius:6px;background:#fff;color:#0F1923;font:inherit;';
   return '<div class="tag-card" data-com-filtros style="text-align:left;padding:10px 14px;margin:0 0 12px;">'
@@ -7194,8 +7212,9 @@ function resumenComisionesGlobalHtml(sales){
      narrow the SAME sales (AND between filters, OR inside one). The list is filtered once and feeds tiles, groups and meta. */
   const _fil=window._ocComFiltros||{},_ftxt={from:window._ocComDesde||"",to:window._ocComHasta||"",filtros:_fil};
   const _ventasTodas=sales;
-  sales=window.OCCommissionHistory.filterSales({sales:_ventasTodas,..._ftxt});
-  const _filtrosCard=typeof filtrosComisionesHtml==="function"?filtrosComisionesHtml(_ventasTodas,_ftxt):""; // typeof: tests load this function alone
+  const _yaFiltrado=window._ocComVentasFiltradas===sales;
+  sales=_yaFiltrado?sales:window.OCCommissionHistory.filterSales({sales:_ventasTodas,..._ftxt});
+  const _filtrosCard=(!window._ocComOmitirFiltros&&typeof filtrosComisionesHtml==="function")?filtrosComisionesHtml(_ventasTodas,_ftxt):""; // typeof: tests load this function alone
   const view=window.OCCommissionHistory.project({sales:sales,group:group,lang:es?"es":"en"});
   const totals=view.totals;
   const money=(v,unknown)=>unknown||v===null||!Number.isFinite(v)?(es?"Por verificar":"Needs review"):fmtMoney(v);
