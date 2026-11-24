@@ -96,13 +96,20 @@
     var wireDownRoom = Object.create(null);
     var sessions = Object.create(null); // in-memory ONLY, never localStorage
     var sessionInFlight = Object.create(null);
+    var sessionGen = 0;
 
     function clearSessions() {
+      sessionGen += 1;
       sessions = Object.create(null);
       sessionInFlight = Object.create(null);
     }
     if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
       window.addEventListener("oc-logout", clearSessions);
+    }
+    function sessionInvalidatedError() {
+      var err = new Error("Cloudflare private relay session invalidated");
+      err.status = 401;
+      return err;
     }
 
     function contabilizarLectura(room, count) {
@@ -121,21 +128,26 @@
       }
     }
 
-    async function ensureSession(room, forceRefresh) {
+    async function ensureSession(room, forceRefresh, expectedGen) {
+      var gen = typeof expectedGen === "number" ? expectedGen : sessionGen;
+      if (gen !== sessionGen) throw sessionInvalidatedError();
       var cur = sessions[room];
       var now = Date.now();
-      if (!forceRefresh && cur && cur.token && cur.expiresAt - now > SESSION_REFRESH_MARGIN_MS) {
+      if (!forceRefresh && cur && cur.gen === gen && cur.token && cur.expiresAt - now > SESSION_REFRESH_MARGIN_MS) {
         return cur.token;
       }
-      if (!forceRefresh && sessionInFlight[room]) return sessionInFlight[room];
+      var inflight = sessionInFlight[room];
+      if (!forceRefresh && inflight && inflight.gen === gen) return inflight.promise;
       var job = (async function () {
         var cred = await Promise.resolve(getCreds(room));
+        if (gen !== sessionGen) throw sessionInvalidatedError();
         if (!cred || !cred.credentials) {
           var noAuth = new Error("Cloudflare private relay session credentials unavailable");
           noAuth.status = 401;
           throw noAuth;
         }
         var yBase = await ypartyBaseForLicense(cred.licenseCode);
+        if (gen !== sessionGen) throw sessionInvalidatedError();
         var ticketRes = await netFetch(authBase + "/ws/ticket", {
           method: "POST",
           mode: "cors",
@@ -147,7 +159,9 @@
             scopes: cred.scopes
           })
         });
+        if (gen !== sessionGen) throw sessionInvalidatedError();
         var ticketBody = await ticketRes.json().catch(function () { return null; });
+        if (gen !== sessionGen) throw sessionInvalidatedError();
         var ticketToken = (ticketRes.ok && ticketBody && ticketBody.ok === true && typeof ticketBody.token === "string")
           ? ticketBody.token : "";
         if (!ticketToken && ticketRes.status !== 404) {
@@ -168,28 +182,35 @@
           },
           body: JSON.stringify({ credentials: cred.credentials, role: cred.role })
         });
+        if (gen !== sessionGen) throw sessionInvalidatedError();
         var sessBody = await sessRes.json().catch(function () { return null; });
+        if (gen !== sessionGen) throw sessionInvalidatedError();
         if (!sessRes.ok || !sessBody || sessBody.ok !== true || typeof sessBody.token !== "string") {
           var sErr = new Error("Session exchange rejected");
           sErr.status = sessRes.status || 403;
           throw sErr;
         }
+        if (gen !== sessionGen) throw sessionInvalidatedError();
         sessions[room] = {
           token: sessBody.token,
-          expiresAt: Number(sessBody.expiresAt) || (Date.now() + 9 * 60 * 1000)
+          expiresAt: Number(sessBody.expiresAt) || (Date.now() + 9 * 60 * 1000),
+          gen: gen
         };
         return sessions[room].token;
       })();
-      sessionInFlight[room] = job;
+      var entry = { gen: gen, promise: job };
+      sessionInFlight[room] = entry;
       try {
         return await job;
       } finally {
-        if (sessionInFlight[room] === job) delete sessionInFlight[room];
+        if (sessionInFlight[room] === entry) delete sessionInFlight[room];
       }
     }
 
     async function authedRequest(room, method, action, query, body) {
-      var token = await ensureSession(room, false);
+      var gen = sessionGen;
+      var token = await ensureSession(room, false, gen);
+      if (gen !== sessionGen) throw sessionInvalidatedError();
       var qStr = query ? qs(query) : "";
       var url = base + "/f123/" + room + "/" + action + (qStr ? "?" + qStr : "");
       var headers = { "authorization": "Bearer " + token };
@@ -199,13 +220,17 @@
         payload = JSON.stringify(body);
       }
       var res = await netFetch(url, { method: method, mode: "cors", cache: "no-store", headers: headers, body: payload });
+      if (gen !== sessionGen) throw sessionInvalidatedError();
       if (res.status === 401) {
-        delete sessions[room];
-        token = await ensureSession(room, true);
+        if (sessions[room] && sessions[room].gen === gen) delete sessions[room];
+        token = await ensureSession(room, true, gen);
+        if (gen !== sessionGen) throw sessionInvalidatedError();
         headers["authorization"] = "Bearer " + token;
         res = await netFetch(url, { method: method, mode: "cors", cache: "no-store", headers: headers, body: payload });
+        if (gen !== sessionGen) throw sessionInvalidatedError();
       }
       var text = await res.text();
+      if (gen !== sessionGen) throw sessionInvalidatedError();
       contabilizarLectura(room, enc.encode(text).byteLength);
       var parsed = null;
       try { parsed = text ? JSON.parse(text) : null; } catch (_) {}
@@ -268,6 +293,20 @@
         }
       }
     };
+    function avanzarCursorRecibido(sock, rev, seq) {
+      var hasRev = rev !== null && rev !== undefined && rev !== "";
+      var hasSeq = seq !== null && seq !== undefined && seq !== "";
+      var nextRev = hasRev ? Number(rev) : sock._liveRev;
+      var nextSeq = hasSeq ? Number(seq) : sock._liveSeq;
+      if (!Number.isSafeInteger(nextRev) || nextRev < 0) nextRev = sock._liveRev;
+      if (!Number.isSafeInteger(nextSeq) || nextSeq < 0) nextSeq = sock._liveSeq;
+      if (nextRev > sock._liveRev) {
+        sock._liveRev = nextRev;
+        sock._liveSeq = Math.max(sock._liveSeq, nextSeq);
+      } else if (nextRev === sock._liveRev && nextSeq > sock._liveSeq) {
+        sock._liveSeq = nextSeq;
+      }
+    }
     Socket.prototype._startLive = function () {
       if (!livePollMs || livePollMs <= 0) return;
       var self = this;
@@ -281,16 +320,20 @@
           var rev = Number(h.body.rev) || 0;
           var seq = Number(h.body.seq) || 0;
           if (rev === self._liveRev && seq <= self._liveSeq) return;
-          var p = await authedRequest(self.room, "GET", "pull", { rev: self._liveRev, seq: self._liveSeq, limit: 64 });
-          if (self.readyState !== 1 || !p.ok || !p.body || !Array.isArray(p.body.frames)) return;
-          var decoded = p.body.frames.map(decodeFrame);
-          decoded.forEach(function (bytes, i) {
-            var f = p.body.frames[i];
-            var key = f.length + ":" + f.slice(0, 64);
-            if (!self._seen[key]) { self._seen[key] = 1; self._binary(bytes, "live"); }
-          });
-          self._liveRev = Number(p.body.rev) || self._liveRev;
-          self._liveSeq = Math.max(self._liveSeq, Number(p.body.seq) || 0);
+          for (var page = 0; page < 8; page++) {
+            if (self.readyState !== 1) return;
+            var prevRev = self._liveRev, prevSeq = self._liveSeq;
+            var p = await authedRequest(self.room, "GET", "pull", { rev: self._liveRev, seq: self._liveSeq, limit: 64 });
+            if (self.readyState !== 1 || !p.ok || !p.body || !Array.isArray(p.body.frames)) return;
+            var decoded = p.body.frames.map(decodeFrame);
+            decoded.forEach(function (bytes, i) {
+              var f = p.body.frames[i];
+              var key = f.length + ":" + f.slice(0, 64);
+              if (!self._seen[key]) { self._seen[key] = 1; self._binary(bytes, "live"); }
+            });
+            avanzarCursorRecibido(self, p.body.rev, p.body.seq);
+            if (!p.body.more || (self._liveRev === prevRev && self._liveSeq === prevSeq)) break;
+          }
         }).catch(function () {}).finally(function () { busy = false; });
       }, livePollMs);
       if (this._liveTimer && typeof this._liveTimer.unref === "function") this._liveTimer.unref();
@@ -323,7 +366,10 @@
         if (typeof c.id === "string" && c.id && typeof c.c === "string") {
           var r = await authedRequest(this.room, "POST", "op", null, { id: c.id, c: c.c, lam: Number(c.lam) || 0 });
           ok = !!(r.ok && r.body && r.body.ok === true);
-          if (ok && Number.isSafeInteger(r.body.seq)) this._liveSeq = Math.max(this._liveSeq, r.body.seq);
+          // R8-01: NEVER advance contiguous received cursor _liveSeq from own POST ACK.
+          // Another device may have written an intermediate seq between _liveSeq and r.body.seq;
+          // _seen deduplicates our own frame when the next contiguous pull fetches the gap.
+          if (ok && Number.isSafeInteger(r.body.seq)) this._ownAckSeq = Math.max(this._ownAckSeq || 0, r.body.seq);
           if (ok) this._seen[c.c.length + ":" + c.c.slice(0, 64)] = 1;
         }
         if (c.ack === 1 && typeof c.id === "string") {
@@ -342,7 +388,7 @@
           });
           res.ok = !!(w.ok && w.body && w.body.ok === true);
           res.conflict = !res.ok && (w.status === 409 || !!(w.body && w.body.conflict === true));
-          if (res.ok && Number.isSafeInteger(w.body.rev)) this._liveRev = Math.max(this._liveRev, w.body.rev);
+          if (res.ok && Number.isSafeInteger(w.body.rev)) this._ownAckRev = Math.max(this._ownAckRev || 0, w.body.rev);
           if (res.ok && typeof c.c === "string") this._seen[c.c.length + ":" + c.c.slice(0, 64)] = 1;
         } catch (_) {}
         if (c.ack === 1 && typeof c.id === "string") {
@@ -385,8 +431,7 @@
         });
         var curRev = Number(pr.body.rev) || 0;
         var newSeq = Number(pr.body.seq) || 0;
-        this._liveRev = Math.max(this._liveRev, curRev);
-        this._liveSeq = Math.max(this._liveSeq, newSeq);
+        avanzarCursorRecibido(this, curRev, newSeq);
         if (Number(c.v) === 2) {
           this._text({ k: "pull-page", v: 2, rev: curRev, seq: newSeq, n: Number(pr.body.n) || 0, more: !!pr.body.more });
         }

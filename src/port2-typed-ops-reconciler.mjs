@@ -69,24 +69,33 @@ export function createTypedOpsReconciler({
   }
 
   const entries = new Map();
+  const settledOpIds = new Set();
+  const settledPayloads = new Map();
+  const settledReceipts = new Map();
   const inFlight = new Map();
   const timers = new Map();
   let paused = false;
+  let destroyed = false;
+  let reconcilerEpoch = 0;
 
   // IDB may load asynchronously; no command may be sent before hydration.
-  // An unreadable/corrupt durable queue blocks the entire dispatcher.
-  let initializationError = null;
-  const initialized = Promise.resolve().then(() => store.loadAll()).then(rows => {
+  // An unreadable/corrupt durable queue blocks the entire dispatcher, while a
+  // transient failure during ready() resets so the caller can retry safely.
+  let initialized = null;
+  async function hydrate() {
+    const rows = await store.loadAll();
     if (!Array.isArray(rows)) throw new Error('durable store loadAll must return an array');
+    const stagedEntries = new Map();
     for (const raw of rows) {
       if (!raw || typeof raw !== 'object' || !OP_ID.test(raw.opId || '') ||
           !raw.command || raw.sameDoLocked !== true) {
         throw new Error('unreadable persisted opId or unsafe same-do-only lock');
       }
       const payloadKey = canonicalKey(raw.command);
-      if (!payloadKey || raw.command.opId !== raw.opId || entries.has(raw.opId))
+      if (!payloadKey || raw.command.opId !== raw.opId || stagedEntries.has(raw.opId)) {
         throw new Error('invalid or duplicate durable commercial command');
-      entries.set(raw.opId, {
+      }
+      stagedEntries.set(raw.opId, {
         opId: raw.opId,
         command: cloneCommand(raw.command),
         payloadKey,
@@ -97,11 +106,27 @@ export function createTypedOpsReconciler({
         updatedAt: Number.isSafeInteger(raw.updatedAt) ? raw.updatedAt : now()
       });
     }
-  }).catch(error => { initializationError = error; });
+    const stagedSettled = [];
+    if (typeof store.loadCommittedOpIds === 'function') {
+      const committedIds = await store.loadCommittedOpIds();
+      if (Array.isArray(committedIds)) {
+        for (const id of committedIds) {
+          if (OP_ID.test(id || '')) stagedSettled.push(id);
+        }
+      }
+    }
+    for (const [id, row] of stagedEntries) entries.set(id, row);
+    for (const id of stagedSettled) settledOpIds.add(id);
+  }
 
   async function ready() {
-    await initialized;
-    if (initializationError) throw new Error('durable store unavailable');
+    const attempt = initialized || (initialized = hydrate());
+    try {
+      await attempt;
+    } catch (_) {
+      if (initialized === attempt) initialized = null;
+      throw new Error('durable store unavailable');
+    }
     return true;
   }
 
@@ -160,9 +185,9 @@ export function createTypedOpsReconciler({
 
   function scheduleRetry(entry) {
     clearTimer(entry.opId);
-    if (paused || !isVisible()) return;
+    if (destroyed || paused || !isVisible()) return;
     if (entry.state !== 'pending') return;
-    if (entry.attempts >= maxAttempts) {
+    if (entry.attempts >= Math.min(maxAttempts, 10)) {
       entry.state = 'paused-retry-exhausted';
       entry.updatedAt = now();
       // The record already exists with sameDoLocked:true; a failed update
@@ -173,7 +198,7 @@ export function createTypedOpsReconciler({
     const delay = computeDelay(entry.attempts);
     const id = schedule(() => {
       timers.delete(entry.opId);
-      if (paused || !isVisible()) return;
+      if (destroyed || paused || !isVisible()) return;
       const current = entries.get(entry.opId);
       if (!current || current.state !== 'pending' || inFlight.has(current.opId)) return;
       void trackFlight(current.opId, current.payloadKey, () => runAttempt(current.command, current, false));
@@ -182,9 +207,11 @@ export function createTypedOpsReconciler({
   }
 
   async function runAttempt(command, existingEntry, isInitialSubmit) {
+    const attemptEpoch = reconcilerEpoch;
     const opId = command.opId;
     const payloadKey = canonicalKey(command);
     const lockedBefore = existingEntry?.sameDoLocked === true;
+    const maxAllowed = Math.min(maxAttempts, 10);
 
     // P0: ALWAYS commit original opId to durable storage BEFORE POSTing to DO.
     // Even a crash while the first HTTP request is in flight therefore leaves
@@ -201,16 +228,40 @@ export function createTypedOpsReconciler({
     };
     try {
       prepared.sameDoLocked = true;
-      await persist(prepared);
+      if (!prepared.verifiedAck) await persist(prepared);
       entries.set(opId, prepared);
-    } catch (_) {
+    } catch (err) {
+      if (err && err.code === 'TYPED_OPS_ALREADY_SETTLED') {
+        settledOpIds.add(opId);
+        const knownKey = settledPayloads.get(opId);
+        if (knownKey && knownKey === payloadKey) {
+          return makeOutcome({
+            committed: true, duplicate: true, fallbackLegacy: false,
+            reconcileRequired: false, stage: 'already-committed',
+            receipt: settledReceipts.get(opId) || null
+          });
+        }
+        return makeOutcome({
+          committed: false, fallbackLegacy: false,
+          reconcileRequired: true, retryTarget: 'same-do-only',
+          stage: knownKey ? 'opid-payload-mismatch' : 'already-committed-unverified-payload',
+          status: knownKey ? 409 : 0
+        });
+      }
       return makeOutcome({stage: 'durable-store-unavailable', fallbackLegacy: false,
         reconcileRequired: false, retryable: false, retryTarget: null});
+    }
+    if (destroyed || attemptEpoch !== reconcilerEpoch || paused || !isVisible()) {
+      return makeOutcome({
+        committed: false, fallbackLegacy: false,
+        reconcileRequired: true, retryTarget: 'same-do-only',
+        stage: destroyed || attemptEpoch !== reconcilerEpoch ? 'reconciler-destroyed' : 'paused-hidden'
+      });
     }
 
     let rawOutcome;
     try {
-      rawOutcome = await dispatch(cloneCommand(command));
+      rawOutcome = prepared.verifiedAck || await dispatch(cloneCommand(command));
     } catch (_) {
       rawOutcome = makeOutcome({
         committed: false,
@@ -227,8 +278,10 @@ export function createTypedOpsReconciler({
     // 1. Committed (first or idempotent duplicate=true) -> remove from queue & settle.
     if (res.committed === true) {
       clearTimer(opId);
+      prepared.verifiedAck = res;
       // Cleanup must be durable too. If removal fails the stored opId stays
-      // pinned for safe idempotent replay to the SAME DO after reload.
+      // pinned in IDB, and RAM caches the verified ACK to retry local cleanup
+      // without issuing a second commercial HTTP POST.
       try {
         // C21b: an ACK is not durable if cleanup deletes the only same-do
         // evidence. On real C16b IDB, markCommitted atomically stores a
@@ -237,8 +290,22 @@ export function createTypedOpsReconciler({
           await store.markCommitted(opId);
         else
           await store.remove(opId); // Legacy synthetic in-memory test stores.
+        settledOpIds.add(opId);
+        settledPayloads.set(opId, payloadKey);
+        if (res.receipt) settledReceipts.set(opId, Object.freeze({ ...res.receipt }));
         entries.delete(opId);
       } catch (_) {
+        prepared.cleanupAttempts = (prepared.cleanupAttempts || 0) + 1;
+        if (!destroyed && attemptEpoch === reconcilerEpoch && !paused && isVisible() &&
+            prepared.cleanupAttempts < Math.min(maxAttempts, 10)) {
+          const id = schedule(() => {
+            timers.delete(opId);
+            if (destroyed || attemptEpoch !== reconcilerEpoch || paused || !isVisible() ||
+                inFlight.has(opId) || entries.get(opId) !== prepared) return;
+            void trackFlight(opId, payloadKey, () => runAttempt(prepared.command, prepared, false));
+          }, computeDelay(prepared.cleanupAttempts));
+          timers.set(opId, id);
+        }
         return makeOutcome({stage: 'durable-cleanup-pending', fallbackLegacy: false,
           reconcileRequired: true, retryTarget: 'same-do-only',
           receipt: res.receipt ? Object.freeze({ ...res.receipt }) : null});
@@ -259,13 +326,14 @@ export function createTypedOpsReconciler({
         opId,
         status: 'committed',
         duplicate: finalOut.duplicate,
-        receipt: finalOut.receipt
+        receipt: finalOut.receipt,
+        command: cloneCommand(command)
       });
       return finalOut;
     }
 
-    // 2. Terminal conflict quarantine (HTTP 409) -> store quarantined, never retry or fallback.
-    if (res.quarantine === true) {
+    // 2. Terminal conflict quarantine (HTTP 409 or rejected 400/413/415 command) -> never retry or fallback.
+    if (res.quarantine === true || (res.stage === 'invalid-command' && [400, 413, 415].includes(res.status))) {
       clearTimer(opId);
       const entry = existingEntry || {
         opId,
@@ -278,7 +346,7 @@ export function createTypedOpsReconciler({
         updatedAt: now()
       };
       entry.sameDoLocked = true;
-      entry.attempts += 1;
+      entry.attempts = Math.min(10, entry.attempts + 1);
       entry.state = 'quarantined';
       entry.updatedAt = now();
       entries.set(opId, entry);
@@ -356,8 +424,8 @@ export function createTypedOpsReconciler({
       updatedAt: now()
     };
     entry.sameDoLocked = true;
-    entry.attempts += 1;
-    entry.state = entry.attempts >= maxAttempts ? 'paused-retry-exhausted' : 'pending';
+    entry.attempts = Math.min(10, entry.attempts + 1);
+    entry.state = entry.attempts >= Math.min(maxAttempts, 10) ? 'paused-retry-exhausted' : 'pending';
     entry.updatedAt = now();
     entries.set(opId, entry);
     try { await persist(entry); }
@@ -380,8 +448,10 @@ export function createTypedOpsReconciler({
   }
 
   async function submit(command) {
+    if (destroyed) return makeOutcome({ stage: 'reconciler-destroyed', fallbackLegacy: false });
     try { await ready(); }
     catch (_) { return makeOutcome({stage:'durable-store-unavailable',fallbackLegacy:false}); }
+    if (destroyed) return makeOutcome({ stage: 'reconciler-destroyed', fallbackLegacy: false });
     if (!command || typeof command !== 'object' || Array.isArray(command) || !OP_ID.test(command.opId || '')) {
       return makeOutcome({ stage: 'invalid-command', fallbackLegacy: true });
     }
@@ -396,12 +466,38 @@ export function createTypedOpsReconciler({
     }
 
     const existing = entries.get(opId);
+    if (!existing && settledOpIds.has(opId)) {
+      const knownKey = settledPayloads.get(opId);
+      if (knownKey && knownKey === payloadKey) {
+        return makeOutcome({
+          committed: true, duplicate: true, fallbackLegacy: false,
+          reconcileRequired: false, stage: 'already-committed',
+          receipt: settledReceipts.get(opId) || null
+        });
+      }
+      return makeOutcome({
+        committed: false, fallbackLegacy: false,
+        reconcileRequired: true, retryTarget: 'same-do-only',
+        stage: knownKey ? 'opid-payload-mismatch' : 'already-committed-unverified-payload',
+        status: knownKey ? 409 : 0
+      });
+    }
     if (existing) {
       if (existing.payloadKey !== payloadKey) {
         return makeOutcome({ stage: 'opid-payload-mismatch', fallbackLegacy: false });
       }
       if (existing.state === 'quarantined') {
         return makeOutcome({ stage: 'conflict-quarantine', quarantine: true, fallbackLegacy: false, status: 409 });
+      }
+      if (existing.state === 'paused-auth-required' || existing.state === 'paused-retry-exhausted' ||
+          timers.has(opId) || existing.attempts >= Math.min(maxAttempts, 10)) {
+        const pausedStage = existing.attempts >= Math.min(maxAttempts, 10)
+          ? 'paused-retry-exhausted' : existing.state;
+        return makeOutcome({
+          committed: false, fallbackLegacy: false,
+          reconcileRequired: true, retryable: pausedStage !== 'paused-retry-exhausted',
+          retryTarget: 'same-do-only', stage: pausedStage
+        });
       }
       if (paused || !isVisible()) {
         return makeOutcome({
@@ -412,6 +508,14 @@ export function createTypedOpsReconciler({
         });
       }
     } else {
+      if (paused || !isVisible()) {
+        // Nothing was persisted to IDB or sent to DO yet; permit clean legacy fallback
+        // instead of stranding the fresh opId under coordinator custody reservations.
+        return makeOutcome({
+          stage: 'paused-hidden',
+          fallbackLegacy: true
+        });
+      }
       let inFlightUnpersisted = 0;
       for (const id of inFlight.keys()) {
         if (!entries.has(id)) inFlightUnpersisted++;
@@ -425,9 +529,10 @@ export function createTypedOpsReconciler({
   }
 
   async function reconcileNow() {
+    if (destroyed) return Object.freeze({ attempted: 0, results: Object.freeze([]), stage: 'reconciler-destroyed' });
     try { await ready(); }
     catch (_) { return Object.freeze({attempted:0,results:Object.freeze([]),stage:'durable-store-unavailable'}); }
-    if (paused || !isVisible()) {
+    if (destroyed || paused || !isVisible()) {
       return Object.freeze({ attempted: 0, results: Object.freeze([]) });
     }
     const candidates = Array.from(entries.values()).filter(
@@ -435,8 +540,11 @@ export function createTypedOpsReconciler({
     );
     const results = [];
     for (const entry of candidates) {
-      if (paused || !isVisible()) break;
+      if (destroyed || paused || !isVisible()) break;
       clearTimer(entry.opId);
+      if (entry.state === 'paused-retry-exhausted' || entry.attempts >= Math.min(maxAttempts, 10)) {
+        entry.attempts = 0;
+      }
       entry.state = 'pending';
       results.push(await trackFlight(entry.opId, entry.payloadKey, () => runAttempt(entry.command, entry, false)));
     }
@@ -449,6 +557,7 @@ export function createTypedOpsReconciler({
   }
 
   async function resume() {
+    if (destroyed) return Object.freeze({ attempted: 0, results: Object.freeze([]), stage: 'reconciler-destroyed' });
     paused = false;
     if (!isVisible()) return Object.freeze({ attempted: 0, results: Object.freeze([]) });
     return reconcileNow();
@@ -476,7 +585,9 @@ export function createTypedOpsReconciler({
   }
 
   function destroy() {
+    destroyed = true;
     paused = true;
+    reconcilerEpoch++;
     clearAllTimers();
   }
 

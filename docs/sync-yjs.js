@@ -3141,11 +3141,13 @@
     API.corteFotosShaActivo = false;
     API.rolComercial20Activo = null;
     API.recibosComerciales20 = new Map();
+    var _comandosDespachados20 = new Map();
     API.obtenerReciboComercial20 = function (opId) {
       var id = String(opId || "").trim();
       return id ? (API.recibosComerciales20.get(id) || null) : null;
     };
     function _registrarReciboComercial20(opId, res) {
+      var comando = arguments.length > 2 ? arguments[2] : null;
       var id = String(opId || "").trim();
       if (!id || !res || typeof res !== "object") return null;
       var receipt = res.receipt && typeof res.receipt === "object" ? res.receipt : null;
@@ -3156,6 +3158,17 @@
       if (prev && prev.committed === true && prev.stage === "business-committed" && !incomingCommitted) {
         return prev;
       }
+      var yaEmitidoIgual = Boolean(
+        prev && prev.committed === true && prev.stage === "business-committed" && incomingCommitted &&
+        prev.receipt && receipt &&
+        String(prev.receipt.receiptId || "") === String(receipt.receiptId || "")
+      );
+      var cmdCache = _comandosDespachados20.get(id) || null;
+      var cmdSnapshot = (comando && typeof comando === "object" && !Array.isArray(comando))
+        ? Object.freeze(Object.assign({}, comando))
+        : (res.command && typeof res.command === "object" && !Array.isArray(res.command)
+          ? Object.freeze(Object.assign({}, res.command))
+          : (cmdCache || (prev && prev.command ? prev.command : null)));
       var entry = mismatch
         ? Object.freeze({
             opId: id,
@@ -3167,6 +3180,7 @@
             retryable: false,
             stage: "receipt-opid-mismatch",
             receipt: null,
+            command: null,
             recordedAt: Date.now()
           })
         : Object.freeze({
@@ -3179,6 +3193,7 @@
             retryable: Boolean(res.retryable),
             stage: (receipt && receipt.stage) || res.stage || null,
             receipt: receipt,
+            command: cmdSnapshot,
             recordedAt: Date.now()
           });
       if (API.recibosComerciales20.size >= 500) {
@@ -3186,12 +3201,14 @@
         if (firstKey !== undefined) API.recibosComerciales20.delete(firstKey);
       }
       API.recibosComerciales20.set(id, entry);
-      try {
-        if (typeof window !== "undefined" && typeof window.dispatchEvent === "function" &&
-            typeof CustomEvent === "function") {
-          window.dispatchEvent(new CustomEvent("oc-op-20-recibo", { detail: entry }));
-        }
-      } catch (_) {}
+      if (!yaEmitidoIgual) {
+        try {
+          if (typeof window !== "undefined" && typeof window.dispatchEvent === "function" &&
+              typeof CustomEvent === "function") {
+            window.dispatchEvent(new CustomEvent("oc-op-20-recibo", { detail: entry }));
+          }
+        } catch (_) {}
+      }
       return entry;
     }
     if (piloto && typeof piloto.crearCoordinadorCorte20 === "function") {
@@ -3205,6 +3222,48 @@
         API.modoCorte20Activo = false;
         var coord = null;
         var opciones = Object.assign({}, opc || {});
+        var origOnSettled = typeof opciones.onSettled === "function" ? opciones.onSettled : null;
+        var epochAlCrear = API.__authEpoch20 || 0;
+        var licAlCrear = String(API.codigoCuaderno || "").trim().toUpperCase();
+        opciones.onSettled = function (ev) {
+          if (typeof window !== "undefined" && window.OCYjs && window.OCYjs !== API) return;
+          if (!coord || API.coordinadorCorte20 !== coord) return;
+          if ((API.__authEpoch20 || 0) !== epochAlCrear) return;
+          if (!ev || typeof ev !== "object") return;
+          var opId = typeof ev.opId === "string" ? ev.opId.trim() : "";
+          if (!opId) return;
+          var receipt = ev.receipt && typeof ev.receipt === "object" ? ev.receipt : null;
+          var rLic = receipt && typeof receipt.license === "string" ? receipt.license.trim().toUpperCase() : "";
+          var licOk = licAlCrear ? (!!rLic && rLic === licAlCrear) : true;
+          var committedOk = ev.status === "committed" && !!receipt && licOk &&
+            String(receipt.opId || "").trim() === opId &&
+            receipt.stage === "business-committed";
+          var quarantined = ev.status === "quarantined";
+          if (committedOk) {
+            if (typeof _alcanceTerminales20 === "function") {
+              var alcanceActual = _alcanceTerminales20();
+              if (API.__opIdsTerminales20Scope !== alcanceActual) {
+                API.__opIdsTerminales20Cache = new Set();
+                API.__opIdsTerminales20Scope = alcanceActual;
+              }
+            }
+            API.__opIdsTerminales20Cache = API.__opIdsTerminales20Cache || new Set();
+            API.__opIdsTerminales20Cache.add(opId);
+          }
+          _registrarReciboComercial20(opId, {
+            committed: committedOk,
+            duplicate: ev.duplicate === true,
+            quarantine: quarantined,
+            fallbackLegacy: false,
+            reconcileRequired: !committedOk && !quarantined,
+            retryable: false,
+            stage: committedOk ? "business-committed" : (quarantined ? "conflict-quarantine" : "unverified-settlement"),
+            receipt: committedOk ? receipt : null
+          }, ev.command || null);
+          if (origOnSettled) {
+            try { origOnSettled(ev); } catch (_) {}
+          }
+        };
         var observadorExterno = opciones.onModeChange;
         opciones.onModeChange = function (estado) {
           // C21a failback on iOS pagehide, lost cert, or writer conflict closes
@@ -3215,6 +3274,11 @@
           if (coord && API.coordinadorCorte20 === coord &&
               (!estado || estado.mode !== "active-2.0")) {
             API.modoCorte20Activo = false;
+            API.__ultimoEstadoCorte20 = {
+              activo: false,
+              motivo: String((estado && estado.reason) || "failback").slice(0, 64),
+              en: Date.now()
+            };
             // The coordinator closes its certified writer BEFORE notifying
             // failback. Restore the original encrypted transport and its
             // untouched queue only after that closure.
@@ -3237,21 +3301,35 @@
         return coord;
       };
       API.despacharOpComercialCertificada = function (comando) {
-        if (!API.coordinadorCorte20 || typeof API.coordinadorCorte20.submitCommercial !== "function") {
+        var coordInicio = API.coordinadorCorte20;
+        var epochInicio = API.__authEpoch20 || 0;
+        if (!coordInicio || typeof coordInicio.submitCommercial !== "function") {
           return Promise.resolve({ committed: false, fallbackLegacy: true, stage: "coordinator-uninitialized" });
         }
+        var opIdCmd = comando && typeof comando.opId === "string" ? comando.opId.trim() : "";
+        if (opIdCmd) {
+          if (_comandosDespachados20.size >= 500) {
+            var firstCmdKey = _comandosDespachados20.keys().next().value;
+            if (firstCmdKey !== undefined) _comandosDespachados20.delete(firstCmdKey);
+          }
+          _comandosDespachados20.set(opIdCmd, Object.freeze(Object.assign({}, comando)));
+        }
         return Promise.resolve(API.coordinadorCorte20.submitCommercial(comando)).then(function (res) {
-          _registrarReciboComercial20(comando && comando.opId, res);
+          if (API.coordinadorCorte20 === coordInicio && (API.__authEpoch20 || 0) === epochInicio) {
+            _registrarReciboComercial20(comando && comando.opId, res);
+          }
           return res;
         }).catch(function (err) {
-          _registrarReciboComercial20(comando && comando.opId, {
-            committed: false,
-            duplicate: false,
-            quarantine: false,
-            fallbackLegacy: false,
-            reconcileRequired: true,
-            stage: "dispatch-rejected"
-          });
+          if (API.coordinadorCorte20 === coordInicio && (API.__authEpoch20 || 0) === epochInicio) {
+            _registrarReciboComercial20(comando && comando.opId, {
+              committed: false,
+              duplicate: false,
+              quarantine: false,
+              fallbackLegacy: false,
+              reconcileRequired: true,
+              stage: "dispatch-rejected"
+            });
+          }
           throw err;
         });
       };
@@ -3375,6 +3453,11 @@
             if (API.coordinadorCorte20 !== coord || API.modoCorte20Activo !== true ||
                 relayAnteriorApagadoYVacio()) return;
             API.modoCorte20Activo = false;
+            API.__ultimoEstadoCorte20 = {
+              activo: false,
+              motivo: "legacy-relay-restarted",
+              en: Date.now()
+            };
             try {
               if (typeof coord.failbackToLegacy === "function")
                 Promise.resolve(coord.failbackToLegacy("legacy-relay-restarted")).catch(function () {});
@@ -3393,7 +3476,16 @@
       function _desarmarCorte20PorAuth(motivo) {
         if (window.OCYjs && window.OCYjs !== API) return;
         API.__authEpoch20 = (API.__authEpoch20 || 0) + 1;
+        API.__opIdsTerminales20Cache = new Set();
+        API.__opIdsTerminales20Scope = null;
+        API.recibosComerciales20 = new Map();
+        _comandosDespachados20.clear();
         API.modoCorte20Activo = false;
+        API.__ultimoEstadoCorte20 = {
+          activo: false,
+          motivo: String(motivo || "auth-reset").slice(0, 64),
+          en: Date.now()
+        };
         API.corteFotosShaActivo = false;
         API.fotoSha = null;
         API.rolComercial20Activo = null;
@@ -3617,6 +3709,83 @@
           localStorage.getItem("f123_corte20_qa") === "1";
       } catch (_) { return false; }
     };
+    function _alcanceTerminales20() {
+      var cod = API.codigoCuaderno || (typeof codigo !== "undefined" ? codigo : "") || "";
+      return String(cod) + "|" +
+        String(API.roomId || "") + "|" + String(API.__authEpoch20 || 0);
+    }
+    API.__opIdsTerminales20Cache = new Set();
+    API.__opIdsTerminales20Scope = _alcanceTerminales20();
+    API._refrescarOpIdsTerminales20 = function () {
+      var alcanceInicio = _alcanceTerminales20();
+      if (API.__opIdsTerminales20Scope !== alcanceInicio) {
+        API.__opIdsTerminales20Cache = new Set();
+        API.__opIdsTerminales20Scope = alcanceInicio;
+      }
+      if (typeof piloto === "undefined" || !piloto ||
+          typeof piloto.crearAlmacenDurableOpsTipadas !== "function" ||
+          typeof window === "undefined" || !window.indexedDB ||
+          API.__refrescandoOpIds20Alcance === alcanceInicio) {
+        return Promise.resolve(API.opIdsTerminales20());
+      }
+      API.__refrescandoOpIds20Alcance = alcanceInicio;
+      return Promise.resolve()
+        .then(function () { return piloto.crearAlmacenDurableOpsTipadas({ indexedDB: window.indexedDB }); })
+        .then(function (st) {
+          return st && typeof st.loadCommittedOpIds === "function" ? st.loadCommittedOpIds() : [];
+        })
+        .then(function (ids) {
+          if (_alcanceTerminales20() !== alcanceInicio ||
+              (window.OCYjs && window.OCYjs !== API)) {
+            return API.opIdsTerminales20();
+          }
+          if (API.__opIdsTerminales20Scope !== alcanceInicio) {
+            API.__opIdsTerminales20Cache = new Set();
+            API.__opIdsTerminales20Scope = alcanceInicio;
+          }
+          var prevSize = API.__opIdsTerminales20Cache.size;
+          if (Array.isArray(ids)) {
+            ids.forEach(function (id) {
+              if (typeof id === "string" && id.trim()) API.__opIdsTerminales20Cache.add(id.trim());
+            });
+          }
+          if (API.__opIdsTerminales20Cache.size > prevSize && typeof window.dispatchEvent === "function") {
+            try { window.dispatchEvent(new CustomEvent("oc-ops-20-terminales")); } catch (_) {}
+          }
+          return API.opIdsTerminales20();
+        })
+        .catch(function () { return API.opIdsTerminales20(); })
+        .finally(function () {
+          if (API.__refrescandoOpIds20Alcance === alcanceInicio) API.__refrescandoOpIds20Alcance = null;
+        });
+    };
+    API.opIdsTerminales20 = function () {
+      var alcanceActual = _alcanceTerminales20();
+      if (API.__opIdsTerminales20Scope !== alcanceActual) {
+        API.__opIdsTerminales20Cache = new Set();
+        API.__opIdsTerminales20Scope = alcanceActual;
+      }
+      var set = new Set(API.__opIdsTerminales20Cache || []);
+      var licActual = String(API.codigoCuaderno || (typeof codigo !== "undefined" ? codigo : "") || "").trim().toUpperCase();
+      if (API.recibosComerciales20 && typeof API.recibosComerciales20.forEach === "function") {
+        API.recibosComerciales20.forEach(function (entry, id) {
+          if (entry && entry.committed === true && entry.stage === "business-committed" && id) {
+            var rLic = entry.receipt && entry.receipt.license ? String(entry.receipt.license).trim().toUpperCase() : "";
+            if (rLic && licActual && rLic === licActual) set.add(String(id).trim());
+          }
+        });
+      }
+      return Array.from(set);
+    };
+    API._reintentarActivarCorte20 = _intentarActivarCorte20SiElegible;
+    if (API.doc && typeof API.doc.once === "function") {
+      API.doc.once("destroy", function () {
+        if (API._reintentarActivarCorte20 === _intentarActivarCorte20SiElegible) {
+          API._reintentarActivarCorte20 = null;
+        }
+      });
+    }
+    void API._refrescarOpIdsTerminales20();
     _intentarActivarCorte20SiElegible();
     API.estado = "activo";
     log("Plan C activo (Fase 2 + fotos + ops). Sala:", API.roomId);
@@ -3737,7 +3906,7 @@
             var c = API.coordinadorCorte20;
             Promise.resolve(c && typeof c.drainLatchedSameDo === "function" ? c.drainLatchedSameDo() : null)
               .catch(function () {})
-              .finally(function () { if (typeof _intentarActivarCorte20SiElegible === "function") _intentarActivarCorte20SiElegible(); });
+              .finally(function () { if (typeof API._reintentarActivarCorte20 === "function") API._reintentarActivarCorte20(); });
           }, 15000);
         }
         return okLegado;
@@ -3778,7 +3947,8 @@
           : typeof API.puedeDespacharOpEnLegado === "function"
             ? API.puedeDespacharOpEnLegado(op.opId) : false;
       }).then(function (permitidoEnLegado) {
-        if (permitidoEnLegado !== true || API.opsMap !== mapaActual) return;
+        if (permitidoEnLegado !== true || API.opsMap !== mapaActual ||
+            API.modoCorte20Activo === true || API.coordinadorCorte20 !== coordActual) return;
         try { if (!API.opsMap.get(op.opId)) API.opsMap.set(op.opId, op); } catch (_) {}
       }).catch(function () {});
       return;

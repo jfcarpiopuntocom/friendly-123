@@ -181,11 +181,38 @@
   // ---------------------------------------------------------------------------
   // IndexedDB
   // ---------------------------------------------------------------------------
-  function _abrirCruda(nombre) {
+  var OPEN_TIMEOUT_MS = 8000;
+  var UPGRADE_TIMEOUT_MS = 15000;
+  function _abrirCruda(nombre, timeoutMs) {
     return new Promise(function (resolve, reject) {
-      if (!global.indexedDB) { reject(new Error("IndexedDB no disponible")); return; }
-      var req = global.indexedDB.open(nombre, DB_VERSION);
+      if (!global.indexedDB || typeof global.indexedDB.open !== "function") {
+        reject(new Error("IndexedDB no disponible"));
+        return;
+      }
+      var req;
+      try { req = global.indexedDB.open(nombre, DB_VERSION); }
+      catch (err) { reject(err); return; }
+      var settled = false, watchdog = null;
+      var baseMs = (typeof timeoutMs === "number" && timeoutMs > 0) ? timeoutMs : OPEN_TIMEOUT_MS;
+      function resetWatchdog(ms) {
+        if (watchdog) clearTimeout(watchdog);
+        watchdog = setTimeout(function () {
+          fail(new Error("IndexedDB open timed out: " + nombre));
+        }, ms);
+      }
+      function fail(err) {
+        if (settled) return;
+        settled = true;
+        if (watchdog) { clearTimeout(watchdog); watchdog = null; }
+        reject(err);
+      }
+      resetWatchdog(baseMs);
       req.onupgradeneeded = function (e) {
+        if (settled) {
+          try { if (e && e.target && e.target.transaction && typeof e.target.transaction.abort === "function") e.target.transaction.abort(); } catch (_) {}
+          return;
+        }
+        resetWatchdog(Math.max(baseMs, UPGRADE_TIMEOUT_MS));
         var db = e.target.result;
         if (!db.objectStoreNames.contains(STORE)) {
           // keyPath "id" = "<instanceId>-<contador>". Dos dispositivos NUNCA
@@ -198,42 +225,158 @@
           st.createIndex("instanceId", "instanceId", { unique: false });
         }
       };
-      req.onsuccess = function (e) { resolve(e.target.result); };
-      req.onerror = function () { reject(req.error || new Error("no se pudo abrir " + nombre)); };
+      req.onsuccess = function (e) {
+        var db = (e && e.target && e.target.result) || req.result;
+        if (settled) {
+          try { if (db && typeof db.close === "function") db.close(); } catch (_) {}
+          return;
+        }
+        settled = true;
+        if (watchdog) { clearTimeout(watchdog); watchdog = null; }
+        resolve(db);
+      };
+      req.onerror = function () { fail(req.error || new Error("no se pudo abrir " + nombre)); };
+      req.onblocked = function () { fail(new Error("IndexedDB bloqueado: " + nombre)); };
     });
   }
 
+  function _migracionHecha() {
+    try { return localStorage.getItem(MIGRACION_KEY) === "1"; } catch (_) { return false; }
+  }
+  function _marcarMigracionHecha() {
+    try { localStorage.setItem(MIGRACION_KEY, "1"); } catch (_) {}
+  }
+  var _migracionEnCurso = null;
   function _migrarDesdeBaseVieja(dbNueva) {
-    try { if (localStorage.getItem(MIGRACION_KEY) === "1") return Promise.resolve(); } catch (_) {}
-    return _abrirCruda(DB_NAME_VIEJA).then(function (dbVieja) {
-      return new Promise(function (resolve) {
-        try {
-          var txLeer = dbVieja.transaction(STORE, "readonly");
-          var reqTodos = txLeer.objectStore(STORE).getAll();
-          reqTodos.onsuccess = function () {
-            var registros = reqTodos.result || [];
-            if (!registros.length) { try { localStorage.setItem(MIGRACION_KEY, "1"); } catch (_) {} resolve(); return; }
+    if (_migracionHecha()) return Promise.resolve();
+    if (_migracionEnCurso) return _migracionEnCurso;
+    var p = (async function () {
+      // Verified absence via indexedDB.databases() avoids creating an empty legacy DB.
+      // aislamiento.js prefixes indexedDB.open() with "<namespace>::" without wrapping databases().
+      try {
+        if (global.indexedDB && typeof global.indexedDB.databases === "function") {
+          var dbs = await global.indexedDB.databases();
+          var iso = global.AMG && global.AMG.Aislamiento;
+          var isoPrefijo = (iso && iso.namespace) ? (String(iso.namespace) + "::") : "";
+          if (Array.isArray(dbs) && !dbs.some(function (d) {
+            if (!d) return false;
+            return d.name === DB_NAME_VIEJA ||
+              (isoPrefijo && d.name === isoPrefijo + DB_NAME_VIEJA) ||
+              d.name === "f123::" + DB_NAME_VIEJA;
+          })) {
+            _marcarMigracionHecha();
+            return;
+          }
+        }
+      } catch (_) {}
+      var dbVieja = null;
+      try {
+        dbVieja = await _abrirCruda(DB_NAME_VIEJA);
+      } catch (_) {
+        // R8-03: transient open/blocked/timeout failure MUST NOT mark migration complete.
+        return;
+      }
+      try {
+        if (!dbVieja || !dbVieja.objectStoreNames || !dbVieja.objectStoreNames.contains(STORE)) {
+          _marcarMigracionHecha();
+          return;
+        }
+        var lectura = await new Promise(function (resolve) {
+          try {
+            var txLeer = dbVieja.transaction(STORE, "readonly");
+            var reqTodos = txLeer.objectStore(STORE).getAll();
+            var registros = null, done = false;
+            function fin(ok, arr) { if (!done) { done = true; resolve({ ok: ok, registros: arr }); } }
+            reqTodos.onsuccess = function () {
+              registros = Array.isArray(reqTodos.result) ? reqTodos.result : [];
+              if (!("oncomplete" in txLeer)) fin(true, registros);
+            };
+            reqTodos.onerror = function () { fin(false, null); };
+            txLeer.oncomplete = function () { fin(registros !== null, registros || []); };
+            txLeer.onerror = function () { fin(false, null); };
+            txLeer.onabort = function () { fin(false, null); };
+          } catch (_) { resolve({ ok: false, registros: null }); }
+        });
+        if (!lectura.ok) return;
+        if (!lectura.registros.length) {
+          _marcarMigracionHecha();
+          return;
+        }
+        await new Promise(function (resolve) {
+          try {
             var txEscribir = dbNueva.transaction(STORE, "readwrite");
-            registros.forEach(function (r) { try { txEscribir.objectStore(STORE).put(r); } catch (_) {} });
+            var putError = false;
+            for (var idx = 0; idx < lectura.registros.length; idx++) {
+              try {
+                var putReq = txEscribir.objectStore(STORE).put(lectura.registros[idx]);
+                if (putReq && typeof putReq === "object") {
+                  putReq.onerror = function () {
+                    putError = true;
+                    try { if (typeof txEscribir.abort === "function") txEscribir.abort(); } catch (_) {}
+                  };
+                }
+              } catch (_) {
+                putError = true;
+                try { if (typeof txEscribir.abort === "function") txEscribir.abort(); } catch (_) {}
+                break;
+              }
+            }
             txEscribir.oncomplete = function () {
-              try { localStorage.setItem(MIGRACION_KEY, "1"); } catch (_) {}
-              try { console.warn("[hechos] migrados " + registros.length + " hecho(s) desde la base compartida vieja"); } catch (_) {}
+              if (!putError) {
+                _marcarMigracionHecha();
+                try { console.warn("[hechos] migrados " + lectura.registros.length + " hecho(s) desde la base compartida vieja"); } catch (_) {}
+              }
               resolve();
             };
             txEscribir.onerror = function () { resolve(); };
-          };
-          reqTodos.onerror = function () { resolve(); };
-        } catch (_) { resolve(); }
-      });
-    }).catch(function () { try { localStorage.setItem(MIGRACION_KEY, "1"); } catch (_) {} });
+            txEscribir.onabort = function () { resolve(); };
+          } catch (_) { resolve(); }
+        });
+      } finally {
+        try { if (dbVieja && typeof dbVieja.close === "function") dbVieja.close(); } catch (_) {}
+      }
+    })();
+    _migracionEnCurso = p;
+    return p.finally(function () { if (_migracionEnCurso === p) _migracionEnCurso = null; });
   }
 
   var _db = null;
+  var _dbPromise = null;
   function abrirDB() {
-    if (_db) return Promise.resolve(_db);
-    return _abrirCruda(DB_NAME).then(function (db) {
-      return _migrarDesdeBaseVieja(db).then(function () { _db = db; return db; });
+    if (_db) {
+      if (!_migracionHecha()) {
+        var actual = _db;
+        return _migrarDesdeBaseVieja(actual).then(function () {
+          return _db === actual ? actual : abrirDB();
+        });
+      }
+      return Promise.resolve(_db);
+    }
+    if (_dbPromise) return _dbPromise;
+    var p = _abrirCruda(DB_NAME).then(function (db) {
+      var cerrado = false;
+      db.onclose = function () { cerrado = true; if (_db === db) _db = null; if (_dbPromise === p) _dbPromise = null; };
+      db.onversionchange = function () {
+        cerrado = true;
+        try { db.close(); } catch (_) {}
+        if (_db === db) _db = null;
+        if (_dbPromise === p) _dbPromise = null;
+      };
+      return _migrarDesdeBaseVieja(db).then(function () {
+        if (cerrado) {
+          if (_db === db) _db = null;
+          if (_dbPromise === p) _dbPromise = null;
+          throw new Error("IndexedDB cerrado durante migracion: " + DB_NAME);
+        }
+        _db = db;
+        return db;
+      });
+    }).catch(function (err) {
+      if (_dbPromise === p) _dbPromise = null;
+      throw err;
     });
+    _dbPromise = p;
+    return p;
   }
 
   function guardar(hecho) {

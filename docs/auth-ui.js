@@ -188,7 +188,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
               if (!/^F123-/i.test(String(_ow.syncCode || ""))) _ow.syncCode = _licNueva;
               localStorage.setItem("f123_owned", JSON.stringify(_ow));
               try { localStorage.setItem("f123_licencia_rescatada_en", String(Date.now())); } catch (_) {}
-              setTimeout(function () { try { window.__f123MarcarRecarga && window.__f123MarcarRecarga("rescate-licencia"); location.reload(); } catch (_) {} }, 1200);
+              try { sessionStorage.setItem("f123_rescate_reload_pendiente", "1"); } catch (_) {}
+              setTimeout(function () {
+                try {
+                  if (typeof window.__f123RecargarEnSplash === "function") window.__f123RecargarEnSplash("rescate-licencia");
+                } catch (_) {}
+              }, 1200);
             }
           } catch (_) {}
           /* APARATO DE JFC (v349). Lo decide JFC en su panel ("Aparato JFC").

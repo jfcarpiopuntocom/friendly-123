@@ -59,18 +59,23 @@ function makeMemoryKV(){
  };
 }
 function createDurableIdbMock(){
- const rows=new Map();
+ const stores=new Map();
+ const getMap=name=>{let m=stores.get(name);if(!m){m=new Map();stores.set(name,m);}return m;};
  function tx(){
+  let pending=0,aborted=false,completed=false;
+  const finish=()=>{if(!aborted&&!completed&&pending===0){completed=true;queueMicrotask(()=>{if(!aborted)t.oncomplete?.();});}};
+  const runReq=(fn)=>{pending++;const r={result:undefined,onsuccess:null,onerror:null};queueMicrotask(()=>{if(aborted){pending--;return;}r.result=fn();r.onsuccess?.({target:r});pending--;finish();});return r;};
   const t={
-   objectStore:()=>({
-    get:k=>{const r={result:rows.get(k)};queueMicrotask(()=>r.onsuccess?.());return r;},
-    put:v=>{rows.set(v.opId,structuredClone(v));const r={result:v.opId};queueMicrotask(()=>r.onsuccess?.());return r;},
-    delete:k=>{rows.delete(k);const r={};queueMicrotask(()=>r.onsuccess?.());return r;},
-    getAll:()=>{const r={result:[...rows.values()].map(x=>structuredClone(x))};queueMicrotask(()=>r.onsuccess?.());return r;}
-   }),
+   objectStore:(name)=>{const m=getMap(name||'pending_ops');return {
+    get:k=>runReq(()=>m.get(k)),
+    put:v=>runReq(()=>{const id=v.key??v.opId;m.set(id,structuredClone(v));return id;}),
+    delete:k=>runReq(()=>{m.delete(k);return undefined;}),
+    getAll:()=>runReq(()=>[...m.values()].map(x=>structuredClone(x)))
+   };},
+   abort:()=>{if(!aborted){aborted=true;queueMicrotask(()=>t.onabort?.());}},
    oncomplete:null,onerror:null,onabort:null
   };
-  queueMicrotask(()=>t.oncomplete?.());
+  queueMicrotask(finish);
   return t;
  }
  return {

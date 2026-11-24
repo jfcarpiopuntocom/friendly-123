@@ -8,9 +8,18 @@ import {projectPublicCatalog,assertPublicCatalogTransportDoc} from '../cloudflar
 const ROOM=/^[a-f0-9]{32}-cat$/,HEAD=/^[A-Za-z0-9_.:-]{3,128}$/,SHA=/^[a-f0-9]{64}$/;
 const HOST='friendly123-yparty-port2-canary-qa.jfcarpio.workers.dev';
 const fail=()=>new Error('certified read-only catalog unavailable');
+function stableValue(value){
+ if(Array.isArray(value))return value.map(stableValue);
+ if(value&&typeof value==='object'){
+  const out={};
+  for(const k of Object.keys(value).sort())out[k]=stableValue(value[k]);
+  return out;
+ }
+ return value;
+}
 function canon(doc){
- return JSON.stringify({productos:doc.getMap('productos').toJSON(),
-  ubicaciones:doc.getMap('ubicaciones').toJSON()});
+ return JSON.stringify(stableValue({productos:doc.getMap('productos').toJSON(),
+  ubicaciones:doc.getMap('ubicaciones').toJSON()}));
 }
 function safePublic(doc,room){
  assertPublicCatalogTransportDoc({doc,room});
@@ -50,15 +59,21 @@ export async function openCertifiedReadOnlyPublicCatalog({
  const params=ticket();
  const proofParams=await params();
  if(!isVisible()||privateDoc.isDestroyed)throw fail();
- const response=await send('https://'+HOST+'/parties/tienda/'+room+'?frozen-proof=1',{
-  method:'GET',mode:'cors',cache:'no-store',credentials:'omit',redirect:'error',
-  referrerPolicy:'no-referrer',headers:{
-   'authorization':'Bearer '+proofParams.cap,
-   'x-f123-license':licenseCode,'x-f123-instance':instanceId
-  }
- });
- if(!response?.ok)throw fail();
- const body=await response.json();
+ const controller=new AbortController();
+ const proofTimer=setTimeout(()=>controller.abort(),timeoutMs);
+ let body;
+ try{
+  const response=await send('https://'+HOST+'/parties/tienda/'+room+'?frozen-proof=1',{
+   method:'GET',mode:'cors',cache:'no-store',credentials:'omit',redirect:'error',
+   referrerPolicy:'no-referrer',signal:controller.signal,headers:{
+    'authorization':'Bearer '+proofParams.cap,
+    'x-f123-license':licenseCode,'x-f123-instance':instanceId
+   }
+  });
+  if(!response?.ok)throw fail();
+  body=await response.json();
+ }catch(_){throw fail();}
+ finally{clearTimeout(proofTimer);}
  if(!isVisible()||privateDoc.isDestroyed||
     body?.ok!==true||body.room!==room||body.channel!=='cat'||
     (body.frozenHead!==expectedFrozenHead&&body.frozenHead!=='sala-vacia')||!SHA.test(body.stateSha256||'')||
@@ -133,6 +148,8 @@ export async function openCertifiedReadOnlyPublicCatalog({
   ready=true;
   return Object.freeze({
    frozenHead:body.frozenHead,readOnly:true,
+   isClosed:()=>closed,
+   isActive:()=>ready&&!closed&&isVisible(),
    display(){
     if(!ready||closed||!isVisible())return null;
     try{return safePublic(publicDoc,room)}catch(_){close();return null;}

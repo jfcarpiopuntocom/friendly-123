@@ -45,9 +45,17 @@ function makeTransactionalIdbHarness({ abortNextPut = false, blockOpen = false }
             return {};
           },
           close() {},
-          transaction(storeName, mode) {
-            const committed = dbMap.get(storeName);
-            const staged = new Map([...committed].map(([k, v]) => [k, structuredClone(v)]));
+          transaction(storeNames, mode) {
+            const scope = Array.isArray(storeNames) ? storeNames : [storeNames];
+            const scopeStaged = new Map();
+            for (const target of scope) {
+              const committed = dbMap.get(target);
+              if (!committed) throw new Error(`Missing objectStore: ${target}`);
+              scopeStaged.set(target, {
+                committed,
+                staged: new Map([...committed].map(([k, v]) => [k, structuredClone(v)]))
+              });
+            }
             let aborted = false;
             let settled = false;
             let pendingOps = 0;
@@ -65,7 +73,10 @@ function makeTransactionalIdbHarness({ abortNextPut = false, blockOpen = false }
                   if (tx.onabort) tx.onabort({});
                 });
               },
-              objectStore() {
+              objectStore(targetName = scope[0]) {
+                const entry = scopeStaged.get(targetName);
+                if (!entry) throw new Error(`ObjectStore not in transaction scope: ${targetName}`);
+                const staged = entry.staged;
                 function runOp(fn) {
                   const opReq = makeReq();
                   pendingOps++;
@@ -87,8 +98,10 @@ function makeTransactionalIdbHarness({ abortNextPut = false, blockOpen = false }
                         queueMicrotask(() => {
                           if (aborted) return;
                           if (mode === 'readwrite') {
-                            committed.clear();
-                            for (const [k, v] of staged.entries()) committed.set(k, v);
+                            for (const s of scopeStaged.values()) {
+                              s.committed.clear();
+                              for (const [k, v] of s.staged.entries()) s.committed.set(k, v);
+                            }
                           }
                           onCompleteCount++;
                           if (tx.oncomplete) tx.oncomplete({});
