@@ -1,25 +1,60 @@
 'use strict';
-// C226 (JFC 23 nov 2026): "los 4 botones son click on/off y si se dejan todos off, sale todo RAW como siempre he pedido";
-// "By artist/associate debe ser des-elegible".
-const {test}=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const vm=require('node:vm');
-const app=fs.readFileSync('src/app/app-inline-01.js','utf8'),person=fs.readFileSync('docs/commissions-by-person.js','utf8');
-function sacar(nombre){const i=app.indexOf('function '+nombre+'(');let d=0,j=app.indexOf('{',i);for(let k=j;k<app.length;k++){if(app[k]==='{')d++;else if(app[k]==='}'&&--d===0)return app.slice(i,k+1);}throw Error(nombre);}
-test('C226: tapping the pressed group turns it off -> RAW (total); tapping another turns it on',()=>{
- const ctx={window:{_ocComHistoryGroup:'producto',_ocVistaComisiones:'product'},document:{getElementById:()=>null},_ocMesComisiones:null,cargarComisiones(){}};
- vm.createContext(ctx);vm.runInContext(sacar('cambiarRangoComisionesGlobal'),ctx);
- ctx.cambiarRangoComisionesGlobal('grupo','producto');assert.equal(ctx.window._ocComHistoryGroup,'total');
- ctx.cambiarRangoComisionesGlobal('grupo','cliente');assert.equal(ctx.window._ocComHistoryGroup,'cliente');
- ctx.cambiarRangoComisionesGlobal('grupo','cliente');assert.equal(ctx.window._ocComHistoryGroup,'total');
+// C251 owner correction supersedes C226's erroneous single-select contract.
+// Test the ACTUAL served after-bundle module, not the obsolete pre-override
+// cambiarRangoComisionesGlobal function in source app-inline-01.js.
+const {test}=require('node:test'), assert=require('node:assert/strict');
+const fs=require('node:fs'), vm=require('node:vm');
+const person=fs.readFileSync('docs/commissions-by-person.js','utf8');
+const begin=person.indexOf('  /* C251 JFC 23-nov: independent, combinable Commissions view toggles.');
+const end=person.indexOf('  var original=root.cambiarVistaComisiones;',begin);
+assert.ok(begin>0&&end>begin,'C251 additive module exists after bundle');
+const block=person.slice(begin,end);
+function harness(initial) {
+  var reloads=0;
+  const root={_ocComHistoryGroup:initial||'producto',
+    resumenComisionesGlobalHtml(){return '<section data-commissions-summary="all"></section>';},
+    cambiarRangoComisionesGlobal(){throw Error('legacy exclusive toggle invoked');},
+    cargarComisiones(){reloads++;}};
+  const container={querySelector(){return null;},querySelectorAll(){return [];}};
+  const ctx={root,container,document:{},tx:(es)=>es,setMode(){}};
+  vm.createContext(ctx);vm.runInContext(block,ctx);
+  return {root,reloads:()=>reloads};
+}
+test('C251: toggling Product + Customer keeps both selected, then only the pressed button is released',()=>{
+  const h=harness();
+  h.root.cambiarRangoComisionesGlobal('grupo','cliente');
+  assert.deepEqual(Array.from(h.root._ocComHistoryGroups),['producto','cliente']);
+  h.root.cambiarRangoComisionesGlobal('grupo','producto');
+  assert.deepEqual(Array.from(h.root._ocComHistoryGroups),['cliente']);
+  assert.equal(h.root._ocComHistoryGroup,'cliente');
+  h.root.cambiarRangoComisionesGlobal('grupo','mes');
+  assert.deepEqual(Array.from(h.root._ocComHistoryGroups),['cliente','mes']);
+  assert.equal(h.reloads(),3);
 });
-test('C226: coming from By artist, the tapped group turns ON and By artist is released',()=>{
- let released=false;
- const ctx={window:{_ocComHistoryGroup:'producto',_ocVistaComisiones:'person'},document:{getElementById:()=>null},_ocMesComisiones:null,cargarComisiones(){},
-  cambiarVistaComisiones(v){released=v==='product';ctx.window._ocVistaComisiones='product';}};
- vm.createContext(ctx);vm.runInContext(sacar('cambiarRangoComisionesGlobal'),ctx);
- ctx.cambiarRangoComisionesGlobal('grupo','producto');
- assert.equal(released,true);assert.equal(ctx.window._ocComHistoryGroup,'producto');
+test('C251: no group selected means RAW, all five groups can be independently on',()=>{
+  const h=harness();
+  h.root.cambiarRangoComisionesGlobal('grupo','total');
+  assert.deepEqual(Array.from(h.root._ocComHistoryGroups),[]);
+  assert.equal(h.root._ocComHistoryGroup,'total');
+  for(const group of ['producto','percha','cliente','comisionista','mes'])
+    h.root.cambiarRangoComisionesGlobal('grupo',group);
+  assert.deepEqual(Array.from(h.root._ocComHistoryGroups),
+    ['producto','percha','cliente','comisionista','mes']);
+  h.root.cambiarRangoComisionesGlobal('grupo','percha');
+  assert.deepEqual(Array.from(h.root._ocComHistoryGroups),
+    ['producto','cliente','comisionista','mes']);
 });
-test('C226: By artist / associate toggles off on a second tap and releases the group buttons while on',()=>{
- assert.match(person,/if \(isPerson\(\)\) \{\s*root\.cambiarVistaComisiones\('product'\);/);
- assert.match(person,/\[data-commissions-view-global\]/);
+test('C251: By artist does not release global toggles in All dates; keeps monthly behavior',()=>{
+  assert.match(person,/if \(person && period\(\)\) container\.querySelectorAll\('\[data-commissions-view-global\]'\)/);
+  assert.match(person,/if \(person && period\(\)\) \{\s*container\.querySelectorAll\('\[data-commissions-section\]'\)/);
+  assert.match(person,/\/\/ Toggling Person off leaves every other group switch unchanged/);
+  assert.match(person,/bar\.setAttribute\('aria-multiselectable','true'\)/);
+});
+test('C251: multi grouping keys details by [group,id] and uses only one financial summary header',()=>{
+  assert.match(person,/var parts=\[\],detailRows=new Map\(\)/);
+  assert.match(person,/JSON\.stringify\(\[g,oldKey\]\)/);
+  assert.match(person,/if \(i===0\) \{\s*parts\.push\(panel\.outerHTML\)/);
+  assert.match(person,/var title=panel\.querySelector\('h3\.seccion'\)/);
+  assert.doesNotMatch(block,/(fetch\(|localStorage\.setItem|indexedDB|caches\.delete)/,
+    'selection is read-only and must not write commercial money or offline stores');
 });
