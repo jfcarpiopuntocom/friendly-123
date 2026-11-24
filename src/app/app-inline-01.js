@@ -7291,65 +7291,85 @@ function resumenComisionesGlobalHtml(sales){
     entries.push(v);
   });
   window._ocComHistoryRowsPorGrupo=byGroup;
-  const cards=view.groups.map(function(g){
-    const associated=group==="comisionista";
-    const isRaw=group==="total";
-    const m=rich10?metaByGroup.get(g.id):null;
-    const searchAttr=m?' data-search="'+escHtml([g.label,m.sku,...m.perchas,...m.asociados,...m.clientes].join(" "))+'"':"";
-    const skuHtml=(m&&m.sku&&group==="producto")?' <span style="font-weight:400;font-size:13px;color:var(--ink-soft);">'+escHtml(m.sku)+'</span>':"";
-    const badgeHtml=(m&&group==="producto"&&!g.unknownCommission&&(g.commission>0||m.casaEnAsociadoCents>0))
-      ?'<span class="badge-estado '+(m.pendCents>0?"rojo":m.casaEnAsociadoCents>0?"amarillo":"verde")+'" style="margin-top:0;">'
-        +(m.casaEnAsociadoCents>0?(es?"parte de la casa sin conciliar":"house share unverified"):m.pendCents>0?"pending":"paid")+'</span>':"";
-    const editRackBtn=(m&&group==="percha"&&m.ubicacionId&&typeof abrirEditorComisionPercha==="function")
-      ?'<button type="button" class="tecla" data-comm-edit-rack="'+escHtml(m.ubicacionId)+'" onclick="event.preventDefault();event.stopPropagation();abrirEditorComisionPercha(this.dataset.commEditRack)" style="min-height:40px;font-size:13px;margin:0;">'+(es?"✎ Editar trato de percha":"✎ Adjust shelf deal")+'</button>':"";
-    const editAssocBtn=(m&&group==="comisionista"&&m.promotoraId&&typeof abrirEditorComisionista==="function")
-      ?'<button type="button" class="tecla" data-abrir-promotora="'+escHtml(m.promotoraId)+'" onclick="event.preventDefault();event.stopPropagation();abrirEditorComisionista(this.dataset.abrirPromotora)" style="min-height:40px;font-size:13px;margin:0;">'+(es?"✎ Editar trato":"✎ Edit deal")+'</button>':"";
-    const subHtml=m?(group==="producto"
-      ?'<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Rack: '+escHtml([...m.perchas].join(", ")||"-")+(m.asociados.size?' · Associate: <strong>'+escHtml([...m.asociados].join(", "))+'</strong>':"")+'</div>'
-      :group==="percha"&&m.asociados.size?'<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Associate: <strong>'+escHtml([...m.asociados].join(", "))+'</strong></div>'
-      :group==="comisionista"&&m.perchas.size?'<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Rack: '+escHtml([...m.perchas].join(", "))+'</div>':""):"";
-    const houseKeepsHtml=(rich10&&!associated&&!g.unknownGross&&!g.unknownCommission&&Number.isFinite(g.gross)&&Number.isFinite(g.commission)&&g.gross>0)
-      ?'<div><div class="rotulo">'+(es?"La casa retiene":"House keeps")+'</div><div class="cifra">'+fmtMoney(Math.max(0,+(g.gross-g.commission).toFixed(2)))+'</div></div>':"";
-    const heldHtml=(m&&m.casaEnAsociadoCents>0)
-      ?'<div><div class="rotulo" style="color:#006B3C;">'+(typeof t==="function"?t("flecha.casaEnAsociado"):(es?"Parte de la casa en manos del asociado":"House share held by associate"))+'</div><div class="cifra" style="color:#006B3C;">'+fmtMoney(m.casaEnAsociadoCents/100)+'</div></div>':"";
-    const pendHtml=(m&&m.pendCents>0)
-      ?'<div><div class="rotulo" style="color:var(--rust-deep,#C05000);">'+(es?"Por pagar":"Still to pay")+'</div><div class="cifra" style="color:var(--rust-deep,#C05000);">'+fmtMoney(m.pendCents/100)+'</div></div>':"";
-    const flechaHtml=(rich10&&group==="producto"&&m&&m.productoId)
-      ?'<div data-comm-flecha style="margin-top:6px;" onclick="event.preventDefault();event.stopPropagation()">'+flechaComisionHtml("",m.direccion,m.productoId,g.label)+'</div>'
-        +(m.revisarDir?'<div data-flecha-revisar style="margin-top:8px;border:2px solid #B0183E;padding:8px 10px;font-size:14px;font-weight:700;color:#B0183E;">'+escHtml(typeof t==="function"?t("flecha.ventaRevisar"):"Paid sales to review")+': '+m.revisarDir+'</div>':""):"";
-    const sheetBtn=(rich10&&group==="producto"&&m&&m.productoId&&typeof abrirFichaProducto==="function")
-      ? (m.pendCents > 0
-        ? '<div style="margin-top:8px;" onclick="event.preventDefault();event.stopPropagation()"><button type="button" class="ir" data-comm-open-sheet="'+escHtml(m.productoId)+'" data-comm-pay-from-product="" data-comm-pay-product="'+escHtml(m.productoId)+'" onclick="event.preventDefault();event.stopPropagation();pagarComisionDesdeProducto(this.dataset.commPayProduct)" style="min-height:44px;font-size:14px;margin:0;">'+(es?"Registrar pago":"Record payment")+'</button></div>'
-        : '<div style="margin-top:8px;" onclick="event.preventDefault();event.stopPropagation()"><button type="button" class="tecla" data-comm-open-sheet="'+escHtml(m.productoId)+'" onclick="event.preventDefault();event.stopPropagation();abrirFichaProducto(this.dataset.commOpenSheet)" style="min-height:44px;font-size:14px;margin:0;">'+(es?"Ver ficha de pagos":"See payment sheet")+'</button></div>')
-      : "";
-    // C242: racks/events also get Record payment in all dates when balance is due (opens the oldest unpaid month on By rack).
-    const rackPayBtn=(group==="percha"&&m&&m.pendCents>0&&typeof cambiarMesComisiones==="function")
-      ?'<div style="margin-top:8px;" onclick="event.preventDefault();event.stopPropagation()"><button type="button" class="ir" data-comm-pay-rack-history="'+escHtml(g.id)+'" onclick="event.preventDefault();event.stopPropagation();pagarComisionPorPercha(this.dataset.commPayRackHistory)" style="min-height:44px;font-size:14px;margin:0;">'+(es?"Registrar pago":"Record payment")+'</button></div>':"";
-    const period=group==="mes"&&/^\d{4}-(0[1-9]|1[0-2])$/.test(String(g.id))?
-      '<button type="button" data-commissions-open-month="'+escHtml(g.id)+'" onclick="cambiarMesComisiones(this.dataset.commissionsOpenMonth)"'
-        +' class="tecla" style="min-height:44px;padding:6px 10px;margin-top:6px;">'
-        +(es?"Liquidar este mes":"Settle this month")+'</button>':"";
-    const headHtml=(badgeHtml||editRackBtn||editAssocBtn)
-      ?'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;"><strong style="display:block;font-size:16px;color:var(--ink);">'+escHtml(g.label)+skuHtml+'</strong>'+badgeHtml+editRackBtn+editAssocBtn+'</div>'
-      :'<strong style="display:block;font-size:16px;color:var(--ink);">'+escHtml(g.label)+skuHtml+'</strong>';
-    const rawRows=isRaw?(byGroup.get(g.id)||[]):[];
-    const rawBatch=isRaw?rawRows.slice(0,80):[];
-    const rawHtml=isRaw?rawBatch.map(function(rv){return _ocFilaVentaRawHtml(rv,es,function(val){return money(val,false);});}).join(""):"";
-    const rawMoreHidden=!isRaw||rawBatch.length>=rawRows.length;
-    return '<details data-comm-history-group data-comm-group="'+escHtml(g.id)+'"'+searchAttr+(isRaw?" open":"")+' ontoggle="if(this.open)mostrarDetalleComisiones(this,false)" class="tag-card" style="text-align:left;padding:12px 16px;margin:0 0 10px;">'
-      +'<summary style="cursor:pointer;min-height:44px;">'
-      +headHtml+subHtml
-      +'<div class="stats" style="margin-top:8px;">'
-      +(associated?'':'<div><div class="rotulo">'+(es?"Ventas brutas":"Gross sales")
-        +'</div><div class="cifra">'+money(g.gross,g.unknownGross)+(m&&m.units?' <small>'+m.units+'u</small>':"")+'</div></div>')
-      +'<div><div class="rotulo">'+(es?"Comisiones":"Commissions")+'</div><div class="cifra">'
-        +money(g.commission,g.unknownCommission)+'</div></div>'+houseKeepsHtml+heldHtml+pendHtml+'</div>'
-      +flechaHtml+sheetBtn+rackPayBtn
-      +'<span style="display:inline-block;margin-top:6px;font-size:13px;color:var(--ink-soft);">'+g.count+' '+(es?"ventas":"sales")+'</span>'
-      +'</summary><div data-comm-details data-loaded="'+(isRaw?rawBatch.length:0)+'" style="padding-top:8px;">'+rawHtml+'</div>'
-      +'<button type="button" data-comm-history-more'+(rawMoreHidden?" hidden":"")+' onclick="event.stopPropagation();mostrarDetalleComisiones(this.closest(\'details\'),true)" class="tecla" style="min-height:44px;margin-top:8px;">'
-      +(es?"Mostrar más ventas":"Show more sales")+'</button>'+period+'</details>';
-  }).join("");
+  window._ocComGroupState=window._ocComGroupState||{};
+  const currentBatchSize=60;
+  const currentMounted=Math.min(view.groups.length,currentBatchSize);
+  function _renderCardsSlice(sliceGroups){
+    return sliceGroups.map(function(g){
+      const associated=group==="comisionista";
+      const isRaw=group==="total";
+      const m=rich10?metaByGroup.get(g.id):null;
+      const searchAttr=m?' data-search="'+escHtml([g.label,m.sku,...m.perchas,...m.asociados,...m.clientes].join(" "))+'"':"";
+      const skuHtml=(m&&m.sku&&group==="producto")?' <span style="font-weight:400;font-size:13px;color:var(--ink-soft);">'+escHtml(m.sku)+'</span>':"";
+      const badgeHtml=(m&&group==="producto"&&!g.unknownCommission&&(g.commission>0||m.casaEnAsociadoCents>0))
+        ?'<span class="badge-estado '+(m.pendCents>0?"rojo":m.casaEnAsociadoCents>0?"amarillo":"verde")+'" style="margin-top:0;">'
+          +(m.casaEnAsociadoCents>0?(es?"parte de la casa sin conciliar":"house share unverified"):m.pendCents>0?"pending":"paid")+'</span>':"";
+      const editRackBtn=(m&&group==="percha"&&m.ubicacionId&&typeof abrirEditorComisionPercha==="function")
+        ?'<button type="button" class="tecla" data-comm-edit-rack="'+escHtml(m.ubicacionId)+'" onclick="event.preventDefault();event.stopPropagation();abrirEditorComisionPercha(this.dataset.commEditRack)" style="min-height:40px;font-size:13px;margin:0;">'+(es?"✎ Editar trato de percha":"✎ Adjust shelf deal")+'</button>':"";
+      const editAssocBtn=(m&&group==="comisionista"&&m.promotoraId&&typeof abrirEditorComisionista==="function")
+        ?'<button type="button" class="tecla" data-abrir-promotora="'+escHtml(m.promotoraId)+'" onclick="event.preventDefault();event.stopPropagation();abrirEditorComisionista(this.dataset.abrirPromotora)" style="min-height:40px;font-size:13px;margin:0;">'+(es?"✎ Editar trato":"✎ Edit deal")+'</button>':"";
+      const subHtml=m?(group==="producto"
+        ?'<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Rack: '+escHtml([...m.perchas].join(", ")||"-")+(m.asociados.size?' · Associate: <strong>'+escHtml([...m.asociados].join(", "))+'</strong>':"")+'</div>'
+        :group==="percha"&&m.asociados.size?'<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Associate: <strong>'+escHtml([...m.asociados].join(", "))+'</strong></div>'
+        :group==="comisionista"&&m.perchas.size?'<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Rack: '+escHtml([...m.perchas].join(", "))+'</div>':""):"";
+      const houseKeepsHtml=(rich10&&!associated&&!g.unknownGross&&!g.unknownCommission&&Number.isFinite(g.gross)&&Number.isFinite(g.commission)&&g.gross>0)
+        ?'<div><div class="rotulo">'+(es?"La casa retiene":"House keeps")+'</div><div class="cifra">'+fmtMoney(Math.max(0,+(g.gross-g.commission).toFixed(2)))+'</div></div>':"";
+      const heldHtml=(m&&m.casaEnAsociadoCents>0)
+        ?'<div><div class="rotulo" style="color:#006B3C;">'+(typeof t==="function"?t("flecha.casaEnAsociado"):(es?"Parte de la casa en manos del asociado":"House share held by associate"))+'</div><div class="cifra" style="color:#006B3C;">'+fmtMoney(m.casaEnAsociadoCents/100)+'</div></div>':"";
+      const pendHtml=(m&&m.pendCents>0)
+        ?'<div><div class="rotulo" style="color:var(--rust-deep,#C05000);">'+(es?"Por pagar":"Still to pay")+'</div><div class="cifra" style="color:var(--rust-deep,#C05000);">'+fmtMoney(m.pendCents/100)+'</div></div>':"";
+      const flechaHtml=(rich10&&group==="producto"&&m&&m.productoId)
+        ?'<div data-comm-flecha style="margin-top:6px;" onclick="event.preventDefault();event.stopPropagation()">'+flechaComisionHtml("",m.direccion,m.productoId,g.label)+'</div>'
+          +(m.revisarDir?'<div data-flecha-revisar style="margin-top:8px;border:2px solid #B0183E;padding:8px 10px;font-size:14px;font-weight:700;color:#B0183E;">'+escHtml(typeof t==="function"?t("flecha.ventaRevisar"):"Paid sales to review")+': '+m.revisarDir+'</div>':""):"";
+      const sheetBtn=(rich10&&group==="producto"&&m&&m.productoId&&typeof abrirFichaProducto==="function")
+        ? (m.pendCents > 0
+          ? '<div style="margin-top:8px;" onclick="event.preventDefault();event.stopPropagation()"><button type="button" class="ir" data-comm-open-sheet="'+escHtml(m.productoId)+'" data-comm-pay-from-product="" data-comm-pay-product="'+escHtml(m.productoId)+'" onclick="event.preventDefault();event.stopPropagation();pagarComisionDesdeProducto(this.dataset.commPayProduct)" style="min-height:44px;font-size:14px;margin:0;">'+(es?"Registrar pago":"Record payment")+'</button></div>'
+          : '<div style="margin-top:8px;" onclick="event.preventDefault();event.stopPropagation()"><button type="button" class="tecla" data-comm-open-sheet="'+escHtml(m.productoId)+'" onclick="event.preventDefault();event.stopPropagation();abrirFichaProducto(this.dataset.commOpenSheet)" style="min-height:44px;font-size:14px;margin:0;">'+(es?"Ver ficha de pagos":"See payment sheet")+'</button></div>')
+        : "";
+      // C242: racks/events also get Record payment in all dates when balance is due (opens the oldest unpaid month on By rack).
+      const rackPayBtn=(group==="percha"&&m&&m.pendCents>0&&typeof cambiarMesComisiones==="function")
+        ?'<div style="margin-top:8px;" onclick="event.preventDefault();event.stopPropagation()"><button type="button" class="ir" data-comm-pay-rack-history="'+escHtml(g.id)+'" onclick="event.preventDefault();event.stopPropagation();pagarComisionPorPercha(this.dataset.commPayRackHistory)" style="min-height:44px;font-size:14px;margin:0;">'+(es?"Registrar pago":"Record payment")+'</button></div>':"";
+      const period=group==="mes"&&/^\d{4}-(0[1-9]|1[0-2])$/.test(String(g.id))?
+        '<button type="button" data-commissions-open-month="'+escHtml(g.id)+'" onclick="cambiarMesComisiones(this.dataset.commissionsOpenMonth)"'
+          +' class="tecla" style="min-height:44px;padding:6px 10px;margin-top:6px;">'
+          +(es?"Liquidar este mes":"Settle this month")+'</button>':"";
+      const headHtml=(badgeHtml||editRackBtn||editAssocBtn)
+        ?'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;"><strong style="display:block;font-size:16px;color:var(--ink);">'+escHtml(g.label)+skuHtml+'</strong>'+badgeHtml+editRackBtn+editAssocBtn+'</div>'
+        :'<strong style="display:block;font-size:16px;color:var(--ink);">'+escHtml(g.label)+skuHtml+'</strong>';
+      const rawRows=isRaw?(byGroup.get(g.id)||[]):[];
+      const rawBatch=isRaw?rawRows.slice(0,80):[];
+      const rawHtml=isRaw?rawBatch.map(function(rv){return _ocFilaVentaRawHtml(rv,es,function(val){return money(val,false);});}).join(""):"";
+      const rawMoreHidden=!isRaw||rawBatch.length>=rawRows.length;
+      return '<details data-comm-history-group data-comm-group="'+escHtml(g.id)+'"'+searchAttr+(isRaw?" open":"")+' ontoggle="if(this.open)mostrarDetalleComisiones(this,false)" class="tag-card" style="text-align:left;padding:12px 16px;margin:0 0 10px;">'
+        +'<summary style="cursor:pointer;min-height:44px;">'
+        +headHtml+subHtml
+        +'<div class="stats" style="margin-top:8px;">'
+        +(associated?'':'<div><div class="rotulo">'+(es?"Ventas brutas":"Gross sales")
+          +'</div><div class="cifra">'+money(g.gross,g.unknownGross)+(m&&m.units?' <small>'+m.units+'u</small>':"")+'</div></div>')
+        +'<div><div class="rotulo">'+(es?"Comisiones":"Commissions")+'</div><div class="cifra">'
+          +money(g.commission,g.unknownCommission)+'</div></div>'+houseKeepsHtml+heldHtml+pendHtml+'</div>'
+        +flechaHtml+sheetBtn+rackPayBtn
+        +'<span style="display:inline-block;margin-top:6px;font-size:13px;color:var(--ink-soft);">'+g.count+' '+(es?"ventas":"sales")+'</span>'
+        +'</summary><div data-comm-details data-loaded="'+(isRaw?rawBatch.length:0)+'" style="padding-top:8px;">'+rawHtml+'</div>'
+        +'<button type="button" data-comm-history-more'+(rawMoreHidden?" hidden":"")+' onclick="event.stopPropagation();mostrarDetalleComisiones(this.closest(\'details\'),true)" class="tecla" style="min-height:44px;margin-top:8px;">'
+        +(es?"Mostrar más ventas":"Show more sales")+'</button>'+period+'</details>';
+    }).join("");
+  }
+  window._ocComGroupState[group]={
+    view:view,
+    metaByGroup:metaByGroup,
+    total:view.groups.length,
+    mounted:currentMounted,
+    rowsByGroup:byGroup,
+    renderSlice:_renderCardsSlice
+  };
+  window._ocComHistoryView=view;
+  window._ocComHistoryMetaByGroup=metaByGroup;
+  window._ocComGroupsTotal=view.groups.length;
+  window._ocComBatchSize=currentBatchSize;
+  window._ocComGroupsMounted=currentMounted;
+  window._ocRenderCardsSlice=_renderCardsSlice;
+  const cards=_renderCardsSlice(view.groups.slice(0,currentMounted));
   if(rich10&&typeof matrizComisionistasHtml==="function"&&typeof document.getElementById==="function"){
     const rankCont=document.getElementById("rankingComisiones"),listCont=document.getElementById("listaComisiones");
     if(rankCont&&rankCont!==listCont){
@@ -7371,6 +7391,10 @@ function resumenComisionesGlobalHtml(sales){
   const houseTotalTile=(rich10&&!totals.unknownGross&&!totals.unknownCommission&&Number.isFinite(totals.gross)&&Number.isFinite(totals.commission)&&totals.gross>0)
     ?tile(es?"La casa retiene":"House keeps",fmtMoney(Math.max(0,+(totals.gross-totals.commission).toFixed(2)))):"";
   const searchBar=rich10?'<input id="comm-product-search" type="search" aria-label="'+(es?"Buscar producto, SKU, percha o comisionista":"Search product, SKU, rack or associate")+'" placeholder="'+(es?"Buscar producto, SKU, percha o comisionista…":"Search product, SKU, rack or associate…")+'" autocomplete="off" oninput="if(typeof filtrarComisionesGlobal===\'function\')filtrarComisionesGlobal(this.value)" style="width:100%;max-width:460px;min-height:44px;margin:0 0 8px;padding:8px 12px;border:1px solid #9BAEBF;border-radius:8px;background:var(--paper,#fff);color:var(--ink);font:inherit;"><div id="comm-product-count" role="status" aria-live="polite" style="font-size:13px;color:var(--ink-soft);margin-bottom:10px;"></div>':"";
+  const moreRemaining=view.groups.length-currentMounted;
+  const moreBtn=moreRemaining>0?('<div id="comm-groups-more-wrap" data-comm-more-wrap style="text-align:center;margin:12px 0;">'
+    +'<button type="button" id="btn-comm-more-groups" onclick="mostrarMasGruposComisiones(this,\''+group+'\')" class="tecla" style="min-height:44px;padding:8px 16px;font-size:14px;">'
+    +(es?("Mostrar más ("+moreRemaining+" restantes)"):("Show more ("+moreRemaining+" remaining)"))+'</button></div>'):"";
   return '<section data-commissions-summary="all" data-commissions-current-view="'+group+'">'
     +_filtrosCard+warnings+'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:0 0 16px;">'
     +tile(es?"Total de comisiones":"Total commissions",money(totals.commission,totals.unknownCommission))
@@ -7379,7 +7403,8 @@ function resumenComisionesGlobalHtml(sales){
     +tile(es?"Ventas":"Sales",String(totals.count))+'</div>'
     +'<h3 class="seccion" style="font-size:16px;margin:0 0 10px;">'+titles[group]+'</h3>'
     +searchBar
-    +(cards||'<p style="font-size:14px;">'+(es?"No hay ventas registradas en esta vista.":"No recorded sales in this view.")+'</p>')
+    +'<div id="comm-groups-container" data-comm-groups-container>'+(cards||'<p style="font-size:14px;">'+(es?"No hay ventas registradas en esta vista.":"No recorded sales in this view.")+'</p>')+'</div>'
+    +moreBtn
     +'</section>';
 }
 function _ocFilaVentaRawHtml(v,es,money){
@@ -7408,6 +7433,8 @@ function filtrarComisionesGlobal(valor){
   window._ocBuscaComisionProducto=String(valor||"");
   const cont=typeof document!=="undefined"&&typeof document.getElementById==="function"?document.getElementById("listaComisiones"):null;
   if(!cont)return;
+  // Always clean up previously injected search cards across all containers at the start of every search stroke
+  cont.querySelectorAll('[data-comm-search-injected]').forEach(function(el){el.remove();});
   const norm=typeof normalizarTexto==="function"?normalizarTexto:function(s){return String(s||"").toLowerCase();};
   const needle=norm(window._ocBuscaComisionProducto.trim());
   if(window._ocComHistoryGroup==="total"){
@@ -7422,7 +7449,31 @@ function filtrarComisionesGlobal(valor){
     if(cnt){const es=document.documentElement.lang==="es";cnt.textContent=needle?(es?("Mostrando "+shown+" de "+rows.length):("Showing "+shown+" of "+rows.length)):"";}
     return;
   }
-  const cards=cont.querySelectorAll("[data-comm-history-group]");
+  const groupCont=document.getElementById("comm-groups-container")||cont;
+  if(needle){
+    const activeGroup=window._ocComHistoryGroup||"producto";
+    const st=(window._ocComGroupState&&window._ocComGroupState[activeGroup])||{
+      view:window._ocComHistoryView,
+      metaByGroup:window._ocComHistoryMetaByGroup,
+      total:window._ocComGroupsTotal||0,
+      mounted:window._ocComGroupsMounted||0,
+      renderSlice:window._ocRenderCardsSlice
+    };
+    if(st.view&&st.mounted<st.total){
+      const remaining=st.view.groups.slice(st.mounted);
+      const metaByGroup=st.metaByGroup;
+      const missing=remaining.filter(function(g){
+        const m=metaByGroup?metaByGroup.get(g.id):null;
+        const text=norm([g.label,m&&m.sku,...(m&&m.perchas||[]),...(m&&m.asociados||[]),...(m&&m.clientes||[])].join(" "));
+        return text.includes(needle);
+      }).slice(0,60);
+      if(missing.length&&typeof st.renderSlice==="function"){
+        const html=st.renderSlice(missing).replace(/data-comm-history-group/g,'data-comm-history-group data-comm-search-injected="true"');
+        groupCont.insertAdjacentHTML("beforeend",html);
+      }
+    }
+  }
+  const cards=groupCont.querySelectorAll("[data-comm-history-group]");
   let shown=0;
   cards.forEach(function(card){
     const hay=!needle||norm(card.getAttribute("data-search")||card.textContent||"").includes(needle);
@@ -7432,9 +7483,58 @@ function filtrarComisionesGlobal(valor){
   const cnt=cont.querySelector("#comm-product-count");
   if(cnt){
     const es=document.documentElement.lang==="es";
-    cnt.textContent=needle?(es?("Mostrando "+shown+" de "+cards.length):("Showing "+shown+" of "+cards.length)):"";
+    cnt.textContent=needle?(es?("Mostrando "+shown+" de "+(window._ocComGroupsTotal||cards.length)):("Showing "+shown+" of "+(window._ocComGroupsTotal||cards.length))):"";
   }
 }
+function mostrarMasGruposComisiones(btn,groupParam){
+  const sec=btn&&btn.closest?btn.closest("section[data-commissions-current-view]"):null;
+  const targetGroup=groupParam||(sec?sec.dataset.commissionsCurrentView:(window._ocComHistoryGroup||"producto"));
+  const cont=sec?(sec.querySelector("[data-comm-groups-container]")||sec.querySelector("#comm-groups-container"))
+    :(typeof document!=="undefined"&&typeof document.getElementById==="function"?document.getElementById("comm-groups-container"):null);
+  const wrap=sec?(sec.querySelector("[data-comm-more-wrap]")||sec.querySelector("#comm-groups-more-wrap"))
+    :(typeof document!=="undefined"&&typeof document.getElementById==="function"?document.getElementById("comm-groups-more-wrap"):null);
+  const st=(window._ocComGroupState&&window._ocComGroupState[targetGroup])||(targetGroup===window._ocComHistoryGroup?{
+    view:window._ocComHistoryView,
+    mounted:window._ocComGroupsMounted||0,
+    renderSlice:window._ocRenderCardsSlice
+  }:null);
+  if(!cont||!st||!st.view)return;
+  const view=st.view;
+  const current=st.mounted||0;
+  const batchSize=window._ocComBatchSize||60;
+  const nextSlice=view.groups.slice(current,current+batchSize);
+  if(!nextSlice.length){
+    if(wrap)wrap.style.display="none";
+    return;
+  }
+  st.mounted=current+nextSlice.length;
+  if(targetGroup===window._ocComHistoryGroup){
+    window._ocComGroupsMounted=st.mounted;
+  }
+  if(typeof st.renderSlice==="function"){
+    const isMulti=window._ocComHistoryGroups&&window._ocComHistoryGroups.length>1;
+    let html=st.renderSlice(nextSlice);
+    if(isMulti&&window._ocComHistoryRowsPorGrupo){
+      nextSlice.forEach(function(g){
+        const encodedKey=JSON.stringify([targetGroup,g.id]);
+        if(st.rowsByGroup&&st.rowsByGroup.has(g.id)){
+          window._ocComHistoryRowsPorGrupo.set(encodedKey,st.rowsByGroup.get(g.id));
+          window._ocComHistoryRowsPorGrupo.set(g.id,st.rowsByGroup.get(g.id));
+        }
+        html=html.replace('data-comm-group="'+g.id+'"','data-comm-group="'+escHtml(encodedKey)+'"');
+      });
+    }
+    cont.insertAdjacentHTML("beforeend",html);
+  }
+  const remaining=view.groups.length-st.mounted;
+  if(remaining<=0&&wrap){
+    wrap.style.display="none";
+  }else if(btn){
+    const es=document.documentElement.lang==="es";
+    btn.textContent=es?("Mostrar más ("+remaining+" restantes)"):("Show more ("+remaining+" remaining)");
+  }
+}
+window.mostrarMasGruposComisiones=mostrarMasGruposComisiones;
 // Retain the original receipt breakdown, but mount at most 80 rows per gesture.
 // No date filters, truncated reports or changes to sales/settlements.
 function mostrarDetalleComisiones(panel,more){
@@ -7443,7 +7543,16 @@ function mostrarDetalleComisiones(panel,more){
   if(!target)return;
   const loaded=Number(target.dataset.loaded)||0;
   if(loaded&&!more)return;
-  const rows=window._ocComHistoryRowsPorGrupo&&window._ocComHistoryRowsPorGrupo.get(panel.dataset.commGroup)||[];
+  const rawKey=panel.dataset.commGroup;
+  let rows=window._ocComHistoryRowsPorGrupo&&window._ocComHistoryRowsPorGrupo.get(rawKey);
+  if(!rows&&rawKey){
+    const sec=panel.closest("section[data-commissions-current-view]");
+    const viewGroup=sec?sec.dataset.commissionsCurrentView:(window._ocComHistoryGroup||"");
+    if(viewGroup&&window._ocComHistoryRowsPorGrupo){
+      rows=window._ocComHistoryRowsPorGrupo.get(JSON.stringify([viewGroup,rawKey]));
+    }
+  }
+  if(!rows)rows=[];
   const next=rows.slice(loaded,loaded+80);
   if(next.length){
     const es=document.documentElement.lang==="es";

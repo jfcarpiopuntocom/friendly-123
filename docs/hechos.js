@@ -183,6 +183,9 @@
   // ---------------------------------------------------------------------------
   var OPEN_TIMEOUT_MS = 8000;
   var UPGRADE_TIMEOUT_MS = 15000;
+  var DATABASES_TIMEOUT_MS = 1500;
+  var TX_TIMEOUT_MS = 10000;
+  var MIGRACION_BACKOFF_MS = [0, 5000, 15000, 30000];
   function _abrirCruda(nombre, timeoutMs) {
     return new Promise(function (resolve, reject) {
       if (!global.indexedDB || typeof global.indexedDB.open !== "function") {
@@ -243,22 +246,62 @@
   function _migracionHecha() {
     try { return localStorage.getItem(MIGRACION_KEY) === "1"; } catch (_) { return false; }
   }
+  var _migracionFallos = 0;
+  var _migracionProximoIntento = 0;
   function _marcarMigracionHecha() {
+    _migracionFallos = 0;
+    _migracionProximoIntento = 0;
     try { localStorage.setItem(MIGRACION_KEY, "1"); } catch (_) {}
+  }
+  function _registrarFalloMigracion() {
+    _migracionFallos++;
+    var espera = MIGRACION_BACKOFF_MS[Math.min(_migracionFallos - 1, MIGRACION_BACKOFF_MS.length - 1)];
+    _migracionProximoIntento = espera > 0 ? (Date.now() + espera) : 0;
+  }
+  function _listarDatabasesConLimite(timeoutMs) {
+    if (!global.indexedDB || typeof global.indexedDB.databases !== "function") {
+      return Promise.resolve(null);
+    }
+    return new Promise(function (resolve) {
+      var settled = false;
+      var ms = (typeof timeoutMs === "number" && timeoutMs > 0) ? timeoutMs : DATABASES_TIMEOUT_MS;
+      var timer = setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        resolve(null);
+      }, ms);
+      function done(val) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(val);
+      }
+      try {
+        Promise.resolve(global.indexedDB.databases()).then(
+          function (list) { done(Array.isArray(list) ? list : null); },
+          function () { done(null); }
+        );
+      } catch (_) {
+        done(null);
+      }
+    });
   }
   var _migracionEnCurso = null;
   function _migrarDesdeBaseVieja(dbNueva) {
     if (_migracionHecha()) return Promise.resolve();
+    if (_migracionProximoIntento && Date.now() < _migracionProximoIntento) return Promise.resolve();
     if (_migracionEnCurso) return _migracionEnCurso;
     var p = (async function () {
       // Verified absence via indexedDB.databases() avoids creating an empty legacy DB.
+      // Bounded by DATABASES_TIMEOUT_MS so a hanging Safari/WebKit databases() call never stalls Hechos.
+      // Timeout returns null and falls through to legacy open WITHOUT marking migration done.
       // aislamiento.js prefixes indexedDB.open() with "<namespace>::" without wrapping databases().
       try {
-        if (global.indexedDB && typeof global.indexedDB.databases === "function") {
-          var dbs = await global.indexedDB.databases();
+        var dbs = await _listarDatabasesConLimite(DATABASES_TIMEOUT_MS);
+        if (Array.isArray(dbs)) {
           var iso = global.AMG && global.AMG.Aislamiento;
           var isoPrefijo = (iso && iso.namespace) ? (String(iso.namespace) + "::") : "";
-          if (Array.isArray(dbs) && !dbs.some(function (d) {
+          if (!dbs.some(function (d) {
             if (!d) return false;
             return d.name === DB_NAME_VIEJA ||
               (isoPrefijo && d.name === isoPrefijo + DB_NAME_VIEJA) ||
@@ -274,6 +317,7 @@
         dbVieja = await _abrirCruda(DB_NAME_VIEJA);
       } catch (_) {
         // R8-03: transient open/blocked/timeout failure MUST NOT mark migration complete.
+        _registrarFalloMigracion();
         return;
       }
       try {
@@ -282,11 +326,23 @@
           return;
         }
         var lectura = await new Promise(function (resolve) {
+          var timer = null;
+          var done = false;
+          var txLeer = null;
+          function fin(ok, arr) {
+            if (done) return;
+            done = true;
+            if (timer) { clearTimeout(timer); timer = null; }
+            resolve({ ok: ok, registros: arr });
+          }
           try {
-            var txLeer = dbVieja.transaction(STORE, "readonly");
+            txLeer = dbVieja.transaction(STORE, "readonly");
             var reqTodos = txLeer.objectStore(STORE).getAll();
-            var registros = null, done = false;
-            function fin(ok, arr) { if (!done) { done = true; resolve({ ok: ok, registros: arr }); } }
+            var registros = null;
+            timer = setTimeout(function () {
+              try { if (txLeer && typeof txLeer.abort === "function") txLeer.abort(); } catch (_) {}
+              fin(false, null);
+            }, TX_TIMEOUT_MS);
             reqTodos.onsuccess = function () {
               registros = Array.isArray(reqTodos.result) ? reqTodos.result : [];
               if (!("oncomplete" in txLeer)) fin(true, registros);
@@ -295,17 +351,34 @@
             txLeer.oncomplete = function () { fin(registros !== null, registros || []); };
             txLeer.onerror = function () { fin(false, null); };
             txLeer.onabort = function () { fin(false, null); };
-          } catch (_) { resolve({ ok: false, registros: null }); }
+          } catch (_) { fin(false, null); }
         });
-        if (!lectura.ok) return;
+        if (!lectura.ok) {
+          _registrarFalloMigracion();
+          return;
+        }
         if (!lectura.registros.length) {
           _marcarMigracionHecha();
           return;
         }
-        await new Promise(function (resolve) {
+        var escritoOk = await new Promise(function (resolve) {
+          var timer = null;
+          var done = false;
+          var txEscribir = null;
+          function fin(ok) {
+            if (done) return;
+            done = true;
+            if (timer) { clearTimeout(timer); timer = null; }
+            resolve(ok);
+          }
           try {
-            var txEscribir = dbNueva.transaction(STORE, "readwrite");
+            txEscribir = dbNueva.transaction(STORE, "readwrite");
             var putError = false;
+            timer = setTimeout(function () {
+              putError = true;
+              try { if (txEscribir && typeof txEscribir.abort === "function") txEscribir.abort(); } catch (_) {}
+              fin(false);
+            }, TX_TIMEOUT_MS);
             for (var idx = 0; idx < lectura.registros.length; idx++) {
               try {
                 var putReq = txEscribir.objectStore(STORE).put(lectura.registros[idx]);
@@ -322,16 +395,19 @@
               }
             }
             txEscribir.oncomplete = function () {
-              if (!putError) {
+              if (!putError && !done) {
                 _marcarMigracionHecha();
                 try { console.warn("[hechos] migrados " + lectura.registros.length + " hecho(s) desde la base compartida vieja"); } catch (_) {}
+                fin(true);
+              } else {
+                fin(false);
               }
-              resolve();
             };
-            txEscribir.onerror = function () { resolve(); };
-            txEscribir.onabort = function () { resolve(); };
-          } catch (_) { resolve(); }
+            txEscribir.onerror = function () { fin(false); };
+            txEscribir.onabort = function () { fin(false); };
+          } catch (_) { fin(false); }
         });
+        if (!escritoOk) _registrarFalloMigracion();
       } finally {
         try { if (dbVieja && typeof dbVieja.close === "function") dbVieja.close(); } catch (_) {}
       }

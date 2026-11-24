@@ -369,12 +369,19 @@
     section.dataset.commissionsCurrentView=g;
     var title=panel.querySelector('h3.seccion');
     if (title) section.appendChild(title);
-    var cards=panel.querySelectorAll('[data-comm-history-group]');
-    cards.forEach(function(card){section.appendChild(card);});
-    if (!cards.length) {
-      var empty=document.createElement('p');
-      empty.textContent=tx('No hay ventas registradas en esta vista.','No recorded sales in this view.');
-      section.appendChild(empty);
+    var groupCont=panel.querySelector('[data-comm-groups-container]') || panel.querySelector('#comm-groups-container');
+    if (groupCont) {
+      section.appendChild(groupCont);
+      var moreWrap=panel.querySelector('[data-comm-more-wrap]') || panel.querySelector('#comm-groups-more-wrap');
+      if (moreWrap) section.appendChild(moreWrap);
+    } else {
+      var cards=panel.querySelectorAll('[data-comm-history-group]');
+      cards.forEach(function(card){section.appendChild(card);});
+      if (!cards.length) {
+        var empty=document.createElement('p');
+        empty.textContent=tx('No hay ventas registradas en esta vista.','No recorded sales in this view.');
+        section.appendChild(empty);
+      }
     }
     return section;
   }
