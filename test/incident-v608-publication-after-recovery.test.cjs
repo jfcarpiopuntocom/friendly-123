@@ -112,6 +112,9 @@ async function exchange(a,b,rounds=1){
   }
 }
 async function exchangeBinaryDelta(a,b){
+  // C186: steady-state incremental delta tests run after initial cold-join HEAD recovery.
+  if(a.w.OCYjs.canal)a.w.OCYjs.canal.recuperando=false;
+  if(b.w.OCYjs.canal)b.w.OCYjs.canal.recuperando=false;
   const A=a.w.Y,B=b.w.Y;
   const bVector=B.encodeStateVector(b.w.OCYjs.doc);
   const aVector=A.encodeStateVector(a.w.OCYjs.doc);

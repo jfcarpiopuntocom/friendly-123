@@ -73,7 +73,10 @@ test("full Worker route and real Durable Object enforce JFC PIN override and dev
  assert.equal(desktop.data.revision,4);
  assert.equal((await req("/pin/verify",{instanceId:"synthetic-mobile",pin:"819"})).status,200);
  assert.equal((await req("/pin/verify",{pin:"819"})).status,200);
- assert.equal((await req("/pin/verify",{instanceId:"unregistered-device",pin:"521"})).status,404);
+ // C218: license + valid central Owner PIN works from any device; old rotated PIN -> 401; factory PIN on unregistered device -> 404.
+ assert.equal((await req("/pin/verify",{instanceId:"unregistered-device",pin:"521"})).status,401);
+ assert.equal((await req("/pin/verify",{instanceId:"unregistered-device",pin:"789"})).status,404);
+ assert.equal((await req("/pin/verify",{instanceId:"unregistered-device",pin:"819"})).status,200);
  assert.equal(storage.serialize().includes('"318"'),false);
  assert.equal(storage.serialize().includes('"521"'),false);
  assert.doesNotMatch(storage.serialize(),/inventario|ventas|movimientos|pagos/i);

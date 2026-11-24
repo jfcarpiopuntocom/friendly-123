@@ -389,7 +389,9 @@ test('RED->GREEN (Chromium): PR #1096 deep-link #editar=comisiones opens By rack
       await new Promise(r => setTimeout(r, 120));
       const panelRack = document.getElementById('comm-panel-rack');
 
-      // Also verify PR #1096 All dates paid vs unpaid button guard
+      // Also verify PR #1096 All dates paid vs unpaid button guard (with Product group active per C251).
+      window._ocComHistoryGroups = ['producto'];
+      window._ocComHistoryGroup = 'producto';
       const htmlPaid = resumenComisionesGlobalHtml([{
         id: 'vp', productoId: 'p1', productoNombre: 'Paid Item', ubicacionId: 'u1', ubicacionNombre: 'Rack 1',
         cantidad: 1, precioUnit: 20, fecha: '2026-09-10T12:00:00Z', comisionPct: 30, comisionAsociado: 6, liquidada: true, comisionPendiente: 0
