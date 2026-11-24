@@ -412,7 +412,9 @@
         if (existing.length) {
           var html=root.resumenComisionesGlobalHtml(sales);
           existing.forEach(function(node){node.remove();});
-          container.insertAdjacentHTML('beforeend',html);
+          var personPanel=container.querySelector('#comm-panel-person');
+          if (personPanel) personPanel.insertAdjacentHTML('beforebegin',html);
+          else container.insertAdjacentHTML('beforeend',html);
           reflectGroupButtons();
           setMode();
           return;
