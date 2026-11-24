@@ -180,20 +180,37 @@ function _recargarSeguroVersion() {
    puede adoptarse una vez para evitar bucles de cache. */
 const _ocActSolaOn = true;
 (function actualizacionSola() {
-  if (!_ocActSolaOn || !("serviceWorker" in navigator)) return;
+  if (!_ocActSolaOn) return;
+  const tieneSW = "serviceWorker" in navigator;
   const KA = "f123_autorecarga";
   // Bandera PROPIA: solo la pone revisar() tras confirmar con el service worker que sirve otra
   // version. No se usa f123_reload_al_entrar porque el piso de version la marca en cada carga
   // (compara "f123-shell-vN" contra el nombre de cache con -goldenN y nunca coincide).
   const KP = "f123_act_sola_pendiente";
+  const KR = "f123_rescate_reload_pendiente";
   const manualPurgeReentry = window.__f123ManualPurgeReentry === true;
   let manualPurgeShell = "";
   if (manualPurgeReentry) {
-    try { sessionStorage.removeItem(KP); sessionStorage.removeItem(KA); } catch (_) {}
+    try { sessionStorage.removeItem(KP); sessionStorage.removeItem(KA); sessionStorage.removeItem(KR); } catch (_) {}
   }
   function pendiente() { try { return sessionStorage.getItem(KP) === "1"; } catch (_) { return false; } }
   // offsetParent es null en elementos position:fixed (los overlays): se mide con getClientRects.
   function visible(el) { try { return !!(el && getComputedStyle(el).display !== "none" && el.getClientRects().length > 0); } catch (_) { return false; } }
+  function splashVisible(el) {
+    try {
+      if (!el || el.isConnected === false) return false;
+      if (typeof getComputedStyle === "function" && getComputedStyle(el).display === "none") return false;
+      if (el.style && el.style.display === "none") return false;
+      if (typeof el.getClientRects === "function" && el.getClientRects().length === 0) return false;
+      return true;
+    } catch (_) { return false; }
+  }
+  function documentoVisible() {
+    try {
+      if (document.hidden === true) return false;
+      return typeof document.visibilityState !== "string" || document.visibilityState === "visible";
+    } catch (_) { return false; }
+  }
   function enPantallaPIN() {
     try {
       const gate = document.getElementById("oc-gate");
@@ -209,6 +226,9 @@ const _ocActSolaOn = true;
       // Never auto-reload while a notebook still needs local IDB recovery or
       // peer history replay. A SW update is not permission to interrupt money.
       if (!sinRecuperacion && recuperacionPendiente()) return false;
+      const pad = document.getElementById("oc-pad");
+      if (pad && pad._ocTeclado && typeof pad._ocTeclado.entrada === "function" &&
+          pad._ocTeclado.entrada().length > 0) return false;
       if (visible(document.getElementById("oc-modal-overlay"))) return false;
       if (visible(document.getElementById("oc-comision-overlay"))) return false;
       if (visible(document.getElementById("vi-cliente"))) return false; // venta abierta
@@ -298,10 +318,14 @@ const _ocActSolaOn = true;
   function limpiarFrenada() { try { sessionStorage.removeItem(KF); } catch (_) {} }
   // C181: actual adoption is allowed at PIN only, never inside the operating app.
   // KA prevents same-shell navigation loops; later new shells remain eligible.
+  function rescatePendiente() { try { return sessionStorage.getItem(KR) === "1"; } catch (_) { return false; } }
   let recargando = false;
   function mostrarSplashActualizando() {
     try {
-      if (!enPantallaPIN()) return null;
+      if (!enPantallaPIN() || !documentoVisible()) return null;
+      const existente = document.getElementById("f123-update-splash");
+      if (existente && splashVisible(existente)) return existente;
+      if (existente && existente.remove) { try { existente.remove(); } catch (_) {} }
       const root = document.body || document.documentElement;
       if (!root) return null;
       const layer = document.createElement("div");
@@ -324,35 +348,103 @@ const _ocActSolaOn = true;
         '<div style="font-size:15px;line-height:1.45;font-weight:500;color:#CBD5E1;-webkit-text-fill-color:#CBD5E1">Actualizando la aplicación…</div>' +
         '</div>';
       root.appendChild(layer);
-      return layer;
+      return splashVisible(layer) ? layer : null;
     } catch (_) { return null; }
   }
-  async function intentar() {
-    vigilar();
-    if (!pendiente() || recargando || !seguro() || !puedeRecargarVersion()) return false;
+  function esperarPintadoSplash(splash) {
+    if (!splashVisible(splash) || !documentoVisible() ||
+        typeof window.requestAnimationFrame !== "function") {
+      return Promise.resolve(false);
+    }
+    return new Promise(function (resolve) {
+      let listo = false;
+      function fin(ok) {
+        if (listo) return;
+        listo = true;
+        clearTimeout(t);
+        resolve(ok);
+      }
+      const t = setTimeout(function () { fin(false); }, 2000);
+      try {
+        window.requestAnimationFrame(function () {
+          if (listo || !documentoVisible() || !splashVisible(splash)) return fin(false);
+          try {
+            window.requestAnimationFrame(function () {
+              fin(!listo && documentoVisible() && splashVisible(splash));
+            });
+          } catch (_) { fin(false); }
+        });
+      } catch (_) { fin(false); }
+    });
+  }
+  async function recargarEnSplash(motivo) {
+    if (recargando || !documentoVisible() || !seguro()) return false;
     recargando = true;
     let splash = null, navegando = false;
+    let prevKR = null;
+    try {
+      splash = mostrarSplashActualizando();
+      if (!splash) return false;
+      const pintado = await esperarPintadoSplash(splash);
+      if (!pintado || !documentoVisible() || !splashVisible(splash) || !seguro()) return false;
+      try { prevKR = sessionStorage.getItem(KR); sessionStorage.removeItem(KR); } catch (_) {}
+      try { sessionStorage.setItem("f123_sw_reload_ts", String(Date.now())); } catch (_) {}
+      marcarRecarga(motivo || "rescate-licencia");
+      try {
+        location.reload();
+        navegando = true;
+        return true;
+      } catch (_) {
+        try { if (prevKR !== null) sessionStorage.setItem(KR, prevKR); } catch (_) {}
+        return false;
+      }
+    } catch (_) { return false; }
+    finally {
+      if (!navegando && splash && splash.remove) splash.remove();
+      recargando = false;
+    }
+  }
+  try { window.__f123RecargarEnSplash = recargarEnSplash; } catch (_) {}
+  async function intentar() {
+    if (!tieneSW) return false;
+    vigilar();
+    if (!pendiente() || recargando || !documentoVisible() || !seguro() || !puedeRecargarVersion()) return false;
+    recargando = true;
+    let splash = null, navegando = false;
+    let prevKA = null, prevKP = null, prevKR = null;
     try {
       const objetivo = (localStorage.getItem("f123_version_vista") || "").split("|")[1] || "";
       if (manualPurgeReentry && (!manualPurgeShell || objetivo === manualPurgeShell)) return false;
       if (!objetivo || await shellDelSW() !== objetivo ||
-          !pendiente() || !seguro() || !puedeRecargarVersion()) return false;
+          !pendiente() || !documentoVisible() || !seguro() || !puedeRecargarVersion()) return false;
       splash = mostrarSplashActualizando();
-      // Paint the splash before navigation (no arbitrary idle delay).
-      if (splash && document.visibilityState !== "hidden" && typeof window.requestAnimationFrame === "function") {
-        await new Promise(function (resolve) {
-          window.requestAnimationFrame(function () { window.requestAnimationFrame(resolve); });
-        });
-      }
-      if (!seguro() || !pendiente()) return false;
+      if (!splash) return false;
+      // JFC 2026-11-24: every programmatic reload MUST occur only after the
+      // existing splash is mounted, visible, and confirmed painted (2 rAFs).
+      const pintado = await esperarPintadoSplash(splash);
+      if (!pintado || !documentoVisible() || !splashVisible(splash) ||
+          !seguro() || !pendiente() || !puedeRecargarVersion()) return false;
+      prevKA = sessionStorage.getItem(KA);
+      prevKP = sessionStorage.getItem(KP);
+      prevKR = sessionStorage.getItem(KR);
       sessionStorage.setItem(KA, JSON.stringify({ shell: objetivo }));
       sessionStorage.removeItem(KP);
+      try { sessionStorage.removeItem(KR); } catch (_) {}
       try { sessionStorage.setItem("f123_sw_reload_ts", String(Date.now())); } catch (_) {}
       limpiarFrenada();
       marcarRecarga("version-pin");
-      location.reload();
-      navegando = true;
-      return true;
+      try {
+        location.reload();
+        navegando = true;
+        return true;
+      } catch (_) {
+        try {
+          if (prevKA === null) sessionStorage.removeItem(KA); else sessionStorage.setItem(KA, prevKA);
+          if (prevKP !== null) sessionStorage.setItem(KP, prevKP);
+          if (prevKR !== null) sessionStorage.setItem(KR, prevKR);
+        } catch (_) {}
+        return false;
+      }
     } catch (_) { return false; }
     finally {
       if (!navegando && splash && splash.remove) splash.remove();
@@ -373,7 +465,7 @@ const _ocActSolaOn = true;
     });
   }
   async function revisar() {
-    if (window.__f123PurgeEnCurso === true) return;
+    if (!tieneSW || window.__f123PurgeEnCurso === true) return;
     try {
       const r = await fetch("./version.json?ts=" + Date.now(), { cache: "no-store" });
       if (!r.ok) return;
@@ -448,9 +540,9 @@ const _ocActSolaOn = true;
     } catch (_) {}
   }
   // E2: a takeover can already match version.json while this document is stale.
-  var ultimoControladorSW = navigator.serviceWorker.controller;
+  var ultimoControladorSW = tieneSW ? navigator.serviceWorker.controller : null;
   function onShellTomado() {
-    if (window.__f123PurgeEnCurso === true) return;
+    if (!tieneSW || window.__f123PurgeEnCurso === true) return;
     if (manualPurgeReentry) {
       try { sessionStorage.setItem(KP, "1"); } catch (_) {}
       revisar();
@@ -465,38 +557,53 @@ const _ocActSolaOn = true;
     vigilar();
     if (enPantallaPIN()) intentar();
   }
-  navigator.serviceWorker.addEventListener("controllerchange", onShellTomado);
-  navigator.serviceWorker.addEventListener("message", function (ev) {
-    if (ev && ev.data && ev.data.tipo === "shell-actualizado") onShellTomado();
-  });
+  if (tieneSW) {
+    navigator.serviceWorker.addEventListener("controllerchange", onShellTomado);
+    navigator.serviceWorker.addEventListener("message", function (ev) {
+      if (ev && ev.data && ev.data.tipo === "shell-actualizado") onShellTomado();
+    });
+  }
+  function intentarOrescate() {
+    if (!enPantallaPIN()) return;
+    if (tieneSW && pendiente()) {
+      Promise.resolve(intentar()).then(function (ok) {
+        if (!ok && enPantallaPIN() && rescatePendiente()) recargarEnSplash("rescate-licencia");
+      });
+    } else if (rescatePendiente()) {
+      recargarEnSplash("rescate-licencia");
+    }
+  }
   window._ocActSola = { revisar: revisar, intentar: intentar, seguro: seguro, vigilar: vigilar }; // para pruebas
   // Installed iPhone PWAs can stay open: install SW while running, adopt at PIN.
   // One network check per 15 minutes on user activity; no background polling.
   let ultimoUpdateAlVolver = 0;
   document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "hidden") { intentar(); return; }
-    const ahora = Date.now();
-    if (ahora - ultimoUpdateAlVolver >= 900000) {
-      ultimoUpdateAlVolver = ahora;
-      navigator.serviceWorker.getRegistration().then(function (reg) {
-        if (reg && typeof reg.update === "function") return reg.update();
-      }).catch(function () {});
+    if (!documentoVisible()) return;
+    if (tieneSW) {
+      const ahora = Date.now();
+      if (ahora - ultimoUpdateAlVolver >= 900000) {
+        ultimoUpdateAlVolver = ahora;
+        navigator.serviceWorker.getRegistration().then(function (reg) {
+          if (reg && typeof reg.update === "function") return reg.update();
+        }).catch(function () {});
+      }
+      revisar();
     }
-    revisar();
+    intentarOrescate();
   });
   // The login gate is switched by auth-ui on logout; adopt immediately on its
   // reappearance instead of waiting for a polling interval or another login.
   try {
     const gate = document.getElementById("oc-gate");
     if (gate && typeof window.MutationObserver === "function") {
-      new window.MutationObserver(function () {
-        if (enPantallaPIN() && pendiente()) intentar();
-      }).observe(gate, { attributes: true, attributeFilter: ["style"] });
+      new window.MutationObserver(intentarOrescate).observe(gate, { attributes: true, attributeFilter: ["style"] });
     }
   } catch (_) {}
-  setInterval(function () { if (pendiente() && enPantallaPIN()) intentar(); }, 15000);
-  setInterval(revisar, 600000);
-  setTimeout(revisar, 0);
+  setInterval(intentarOrescate, 15000);
+  if (tieneSW) {
+    setInterval(revisar, 600000);
+    setTimeout(revisar, 0);
+  }
 })();
 
 // Microcirugia 5 (2026-07-07): tras importar un respaldo o restaurar un punto

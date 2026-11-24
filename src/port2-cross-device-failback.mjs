@@ -12,6 +12,27 @@
 const OP_ID = /^(?:customer-payment:)?[A-Za-z0-9_-]{8,96}$/;
 const HEAD = /^[A-Za-z0-9_.:-]{3,128}$/;
 
+// Shared per-store custody barrier closes TOCTOU between concurrent
+// coordinators/tabs probing canDispatchOnLegacy() vs submitCommercial().
+const STORE_CUSTODY = new WeakMap();
+function getStoreCustody(store) {
+  let entry = STORE_CUSTODY.get(store);
+  if (!entry) {
+    entry = { chains: new Map(), reserved20: new Set() };
+    STORE_CUSTODY.set(store, entry);
+  }
+  return entry;
+}
+function withOpCustodyLock(store, opId, fn) {
+  const custody = getStoreCustody(store);
+  const prev = custody.chains.get(opId) || Promise.resolve();
+  const next = prev.then(fn, fn);
+  const tail = next.catch(() => {});
+  custody.chains.set(opId, tail);
+  tail.finally(() => { if (custody.chains.get(opId) === tail) custody.chains.delete(opId); });
+  return next;
+}
+
 function taggedError(message, code) {
   const err = new Error(code + ': ' + message);
   err.code = code;
@@ -115,6 +136,17 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
   }
 
   async function activate20() {
+    if (!destroyed && isVisible() && currentMode === 'active-2.0' && catalogSession &&
+        (typeof catalogSession.isClosed !== 'function' || !catalogSession.isClosed()) &&
+        (typeof catalogSession.isActive !== 'function' || catalogSession.isActive())) {
+      return Object.freeze({
+        ok: true,
+        mode: currentMode,
+        reason: 'certified',
+        frozenHead: catalogSession.frozenHead,
+        readOnly: catalogSession.readOnly === true
+      });
+    }
     const epoch = ++activationEpoch;
     if (destroyed || !isVisible()) {
       await failbackToLegacy('hidden-or-destroyed');
@@ -165,30 +197,40 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
 
   async function canDispatchOnLegacy(opId) {
     if (!OP_ID.test(opId || '')) return false;
-    try {
-      const latched = await isLatchedToSameDo(opId);
-      return !latched;
-    } catch (_) {
-      // Fail-closed: if durable IDB cannot be read, NEVER authorize a legacy send
-      // that could duplicate an already-latched 2.0 sale.
-      return false;
-    }
+    const custody = getStoreCustody(store);
+    if (custody.reserved20.has(opId) || latchedOrCommittedOpIds.has(opId)) return false;
+    return withOpCustodyLock(store, opId, async () => {
+      if (custody.reserved20.has(opId) || latchedOrCommittedOpIds.has(opId)) return false;
+      try {
+        const latched = await isLatchedToSameDo(opId);
+        return !latched;
+      } catch (_) {
+        // Fail-closed: if durable IDB cannot be read, NEVER authorize a legacy send
+        // that could duplicate an already-latched 2.0 sale.
+        return false;
+      }
+    });
   }
 
   async function assertLegacyAllowed(opId) {
     if (!OP_ID.test(opId || '')) {
       throw taggedError('invalid opId for legacy dispatch', 'invalid-opid');
     }
-    let latched = false;
-    try {
-      latched = await isLatchedToSameDo(opId);
-    } catch (_) {
-      throw taggedError('durable store unavailable; legacy dispatch blocked fail-closed', 'durable-store-unavailable');
-    }
-    if (latched) {
-      throw taggedError('opId is irreversibly latched to same-do-only reconciliation and forbidden on legacy 1.0', 'latched-same-do-only');
-    }
-    return Object.freeze({ allowed: true, opId });
+    const custody = getStoreCustody(store);
+    return withOpCustodyLock(store, opId, async () => {
+      let latched = custody.reserved20.has(opId) || latchedOrCommittedOpIds.has(opId);
+      if (!latched) {
+        try {
+          latched = await isLatchedToSameDo(opId);
+        } catch (_) {
+          throw taggedError('durable store unavailable; legacy dispatch blocked fail-closed', 'durable-store-unavailable');
+        }
+      }
+      if (latched) {
+        throw taggedError('opId is irreversibly latched to same-do-only reconciliation and forbidden on legacy 1.0', 'latched-same-do-only');
+      }
+      return Object.freeze({ allowed: true, opId });
+    });
   }
 
   async function submitCommercial(command) {
@@ -199,55 +241,74 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
     if (!OP_ID.test(opId || '')) {
       return Object.freeze({ committed: false, fallbackLegacy: true, stage: 'invalid-command' });
     }
-    try {
-      await refreshDurableLatches();
-    } catch (_) {
-      return Object.freeze({ committed: false, fallbackLegacy: false, stage: 'durable-store-unavailable' });
+    const custody = getStoreCustody(store);
+    const shouldClaim20 = currentMode === 'active-2.0';
+    let claimedHere = false;
+    if (shouldClaim20 && !custody.reserved20.has(opId)) {
+      custody.reserved20.add(opId);
+      claimedHere = true;
     }
-
-    // If we already failed back to legacy 1.0, only already-latched opIds must go to the SAME DO;
-    // fresh opIds created after failback are directed to legacy 1.0.
-    if (currentMode !== 'active-2.0') {
-      if (latchedOrCommittedOpIds.has(opId)) {
-        const res = await reconciler.submit(command);
-        if (res?.committed || res?.reconcileRequired || res?.quarantine || res?.retryTarget === 'same-do-only') {
-          latchedOrCommittedOpIds.add(opId);
-        }
-        return res;
+    return withOpCustodyLock(store, opId, async () => {
+      if (destroyed) {
+        if (claimedHere && !latchedOrCommittedOpIds.has(opId)) custody.reserved20.delete(opId);
+        return Object.freeze({ committed: false, fallbackLegacy: false, stage: 'coordinator-destroyed' });
       }
-      return Object.freeze({
-        committed: false,
-        duplicate: false,
-        fallbackLegacy: true,
-        reconcileRequired: false,
-        quarantine: false,
-        retryable: false,
-        retryTarget: null,
-        stage: 'failback-legacy-active',
-        status: 0,
-        receipt: null
-      });
-    }
+      try {
+        await refreshDurableLatches();
+      } catch (_) {
+        if (claimedHere && !latchedOrCommittedOpIds.has(opId)) custody.reserved20.delete(opId);
+        return Object.freeze({ committed: false, fallbackLegacy: false, stage: 'durable-store-unavailable' });
+      }
 
-    // Close the window between choosing 2.0 and committing its IDB intent.
-    // A concurrent failback must not authorize legacy for the same opId.
-    const previouslyLatched = latchedOrCommittedOpIds.has(opId);
-    latchedOrCommittedOpIds.add(opId);
-    let res;
-    try {
-      res = await reconciler.submit(command);
-    } catch (_) {
-      return Object.freeze({ committed: false, fallbackLegacy: false,
-        reconcileRequired: true, retryTarget: 'same-do-only', stage: 'dispatch-rejected' });
-    }
-    if (res?.fallbackLegacy === true && !res?.reconcileRequired &&
-        !res?.committed && !res?.quarantine && res?.retryTarget !== 'same-do-only') {
-      // C16a resolves pre-send fallback only AFTER durable prepared-row deletion.
-      if (!previouslyLatched) latchedOrCommittedOpIds.delete(opId);
-      else return Object.freeze({ ...res, fallbackLegacy: false,
-        reconcileRequired: true, retryTarget: 'same-do-only', stage: 'already-latched' });
-    }
-    return res;
+      // If we already failed back to legacy 1.0, only already-latched opIds must go to the SAME DO;
+      // fresh opIds created after failback are directed to legacy 1.0.
+      if (currentMode !== 'active-2.0') {
+        if (latchedOrCommittedOpIds.has(opId)) {
+          const res = await reconciler.submit(command);
+          if (res?.committed || res?.reconcileRequired || res?.quarantine || res?.retryTarget === 'same-do-only') {
+            latchedOrCommittedOpIds.add(opId);
+            custody.reserved20.add(opId);
+          }
+          return res;
+        }
+        if (claimedHere) custody.reserved20.delete(opId);
+        return Object.freeze({
+          committed: false,
+          duplicate: false,
+          fallbackLegacy: true,
+          reconcileRequired: false,
+          quarantine: false,
+          retryable: false,
+          retryTarget: null,
+          stage: 'failback-legacy-active',
+          status: 0,
+          receipt: null
+        });
+      }
+
+      // Close the window between choosing 2.0 and committing its IDB intent.
+      // A concurrent failback must not authorize legacy for the same opId.
+      const previouslyLatched = latchedOrCommittedOpIds.has(opId);
+      latchedOrCommittedOpIds.add(opId);
+      custody.reserved20.add(opId);
+      let res;
+      try {
+        res = await reconciler.submit(command);
+      } catch (_) {
+        return Object.freeze({ committed: false, fallbackLegacy: false,
+          reconcileRequired: true, retryTarget: 'same-do-only', stage: 'dispatch-rejected' });
+      }
+      if (res?.fallbackLegacy === true && !res?.reconcileRequired &&
+          !res?.committed && !res?.quarantine && res?.retryTarget !== 'same-do-only') {
+        // C16a resolves pre-send fallback only AFTER durable prepared-row deletion.
+        if (!previouslyLatched) {
+          latchedOrCommittedOpIds.delete(opId);
+          custody.reserved20.delete(opId);
+        } else return Object.freeze({ ...res, fallbackLegacy: false,
+          reconcileRequired: true, retryTarget: 'same-do-only', stage: 'already-latched' });
+      }
+      return res;
+    });
   }
 
   async function drainLatchedSameDo() {
@@ -283,6 +344,8 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
     activationEpoch++;
     destroyed = true;
     closeCatalog();
+    currentMode = 'failback-legacy-1.0';
+    lastFailbackReason = 'destroyed';
     try { reconciler.destroy?.(); } catch (_) {}
   }
 

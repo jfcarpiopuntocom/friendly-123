@@ -19,9 +19,18 @@ function fail(code){
  if(code)error.code=code;
  return error;
 }
+function stableValue(value){
+ if(Array.isArray(value))return value.map(stableValue);
+ if(value&&typeof value==='object'){
+  const out={};
+  for(const k of Object.keys(value).sort())out[k]=stableValue(value[k]);
+  return out;
+ }
+ return value;
+}
 function canon(doc){
- return JSON.stringify({productos:doc.getMap('productos').toJSON(),
-  ubicaciones:doc.getMap('ubicaciones').toJSON()});
+ return JSON.stringify(stableValue({productos:doc.getMap('productos').toJSON(),
+  ubicaciones:doc.getMap('ubicaciones').toJSON()}));
 }
 function plainRow(row){
  return !!row&&typeof row==='object'&&!Array.isArray(row)&&

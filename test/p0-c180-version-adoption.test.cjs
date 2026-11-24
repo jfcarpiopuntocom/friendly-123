@@ -33,8 +33,11 @@ for (const file of ['src/app/app-inline-03.js','docs/app-inline-03.min.js']) {
     vm.runInNewContext(updater,ctx);
     return {window,session,splash:()=>splash,stats:()=>({calls,saves})};
   }
-  test(file+' applies a confirmed new SW exactly once with durable ACK',async()=>{
-    const f=fixture({pin:true,authenticated:false});assert.equal(await f.window._ocActSola.intentar(),true);
+  test(file+' applies a confirmed new SW exactly once with durable ACK when visible, never when hidden',async()=>{
+    const hidden=fixture({pin:true,authenticated:false,visible:false});
+    assert.equal(await hidden.window._ocActSola.intentar(),false,'must never reload while Safari is hidden');
+    assert.equal(hidden.stats().calls,0);
+    const f=fixture({pin:true,authenticated:false,visible:true});assert.equal(await f.window._ocActSola.intentar(),true);
     assert.equal(f.stats().calls,1);assert.equal(f.stats().saves,0);
     assert.equal(f.session.get('f123_act_sola_pendiente'),undefined);
     assert.equal(await f.window._ocActSola.intentar(),false);

@@ -70,16 +70,29 @@ window.F123YPartyPilot = function (sala, licencia) {
     const role = (typeof window !== 'undefined' && window.OCAuth && typeof window.OCAuth.rolActual === 'function')
       ? String(window.OCAuth.rolActual() || '').trim().toLowerCase() : null;
     const activo20 = Boolean(y && y.modoCorte20Activo === true);
-    const coordMode = (y && y.coordinadorCorte20 && typeof y.coordinadorCorte20.mode === 'function')
-      ? y.coordinadorCorte20.mode() : null;
-    const rutaEfectiva = activo20 && coordMode === 'active-2.0'
-      ? 'sync4-a-2.0'
-      : (coordMode === 'failback-legacy-1.0' ? 'sync4-c-peer-idb' : 'legacy-privado-aislado');
+    const coord = y && y.coordinadorCorte20;
+    const coordMode = (coord && typeof coord.mode === 'function')
+      ? coord.mode() : null;
+    const coordReason = (coord && typeof coord.lastReason === 'function')
+      ? coord.lastReason()
+      : (coord && typeof coord.reason === 'function')
+        ? coord.reason()
+        : (y && y.__ultimoEstadoCorte20 && y.__ultimoEstadoCorte20.motivo) || null;
+    const relayEstado = (typeof window !== 'undefined' && window.OCSyncControl && typeof window.OCSyncControl.estado === 'function')
+      ? window.OCSyncControl.estado() : null;
+    let rutaEfectiva = 'legacy-privado-aislado';
+    if (activo20 && coordMode === 'active-2.0') {
+      rutaEfectiva = 'sync4-a-2.0';
+    } else if (coordMode === 'failback-legacy-1.0') {
+      rutaEfectiva = relayEstado === 'conectado' ? 'sync4-fallback-relay' : 'sync4-idb-only';
+    }
     return Object.freeze({
       motor: 'sync4',
       rutaEfectiva,
       modoCorte20Activo: activo20,
       coordMode,
+      coordReason: coordReason ? String(coordReason) : null,
+      relayEstado: relayEstado || null,
       rol: role || null,
       host,
       privadoExpuesto: false
@@ -178,7 +191,8 @@ window.F123YPartyPilot = function (sala, licencia) {
       createProvider,
       fetch: send = globalThis.fetch?.bind(globalThis),
       timeoutMs = 5000,
-      onModeChange = null
+      onModeChange = null,
+      onSettled = null
     } = {}) {
       const unavailable = () => new Error('certified cutover coordinator unavailable');
       const instanceId = readOwnedInstance();
@@ -192,7 +206,7 @@ window.F123YPartyPilot = function (sala, licencia) {
       if (typeof store.loadCommittedOpIds !== 'function' ||
           typeof store.markCommitted !== 'function') throw unavailable();
       const reconciler = this.crearDespachadorComercialTipado({
-        store, fetch: send, timeoutMs
+        store, fetch: send, timeoutMs, onSettled
       });
       let coordinator;
       try {
