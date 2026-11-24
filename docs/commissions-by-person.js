@@ -390,22 +390,24 @@
       // GROUP. Keep lazy details keyed by [group,id] to prevent collisions.
       var parts=[],detailRows=new Map(),filteredSales=filterOnce(sales);
       chosen.forEach(function(g,i) {
-        if (i===0) {
-          root._ocComHistoryGroup=g;
-          var holder=document.createElement('div');
-          holder.innerHTML=originalGlobalSummary(sales);
-          var panel=holder.querySelector('[data-commissions-summary="all"]');
-          if (!panel) return;
-          var rows=root._ocComHistoryRowsPorGrupo;
-          panel.querySelectorAll('[data-comm-history-group]').forEach(function(el) {
-            var oldKey=el.dataset.commGroup, key=JSON.stringify([g,oldKey]);
-            el.setAttribute('data-comm-group',key);
-            if (rows && rows.has(oldKey)) detailRows.set(key,rows.get(oldKey));
-          });
-          parts.push(panel.outerHTML); // Exactly one global totals/filter/search header.
-        } else {
+        if (i>0) {
           var section=buildSecondarySection(g, filteredSales, detailRows);
           if (section) parts.push(section.outerHTML);
+          return;
+        }
+        root._ocComHistoryGroup=g;
+        var holder=document.createElement('div');
+        holder.innerHTML=originalGlobalSummary(sales);
+        var panel=holder.querySelector('[data-commissions-summary="all"]');
+        if (!panel) return;
+        var rows=root._ocComHistoryRowsPorGrupo;
+        panel.querySelectorAll('[data-comm-history-group]').forEach(function(el) {
+          var oldKey=el.dataset.commGroup, key=JSON.stringify([g,oldKey]);
+          el.setAttribute('data-comm-group',key);
+          if (rows && rows.has(oldKey)) detailRows.set(key,rows.get(oldKey));
+        });
+        if (i===0) {
+          parts.push(panel.outerHTML); // Exactly one global totals/filter/search header.
         }
       });
       root._ocComHistoryGroup=chosen[0]||'total';
