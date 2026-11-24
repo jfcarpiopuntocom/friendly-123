@@ -119,17 +119,22 @@
   function setMode() {
     if (!ensure()) return;
     var person = isPerson();
+    reflectGroupButtons();
     var panel = container.querySelector('#comm-panel-person');
     var filter = container.querySelector('[data-commissions-person-filter]');
     if (panel) panel.hidden = !person;
     if (filter) filter.style.display = person ? 'inline-flex' : 'none';
-    if (person) {
+    // RAW is visible only when no report button at all is pressed.
+    container.querySelectorAll('[data-commissions-summary="all"]').forEach(function(p) {
+      p.hidden = person && groupSelection().length === 0;
+    });
+    if (person && period()) {
       container.querySelectorAll('[data-commissions-section]').forEach(function(p) {
         if (p !== panel) p.hidden = true;
       });
     }
-    // C226: while By artist / associate is on, the global group buttons are shown released (one pressed button at a time).
-    if (person) container.querySelectorAll('[data-commissions-view-global]').forEach(function(b) {
+    // Monthly settlement remains an exclusive pane; all-dates group buttons remain independently selected.
+    if (person && period()) container.querySelectorAll('[data-commissions-view-global]').forEach(function(b) {
       b.setAttribute('aria-selected','false'); b.classList.remove('hundida');
     });
     container.querySelectorAll('[data-commissions-view]').forEach(function(b) {
@@ -309,6 +314,116 @@
   root.F123CommissionsByPerson.refresh = function () {
     if (isPerson()) load();
   };
+
+  /* C251 JFC 23-nov: independent, combinable Commissions view toggles.
+     Pure read-only presentation; no monetary, payout, stock or Sync writes.
+     All off -> RAW; multi-on -> one overall total and separately labelled
+     read-only grouped views, never a sum of totals across those views. */
+  var globalGroups=['producto','percha','cliente','comisionista','mes'];
+  function groupSelection() {
+    if (Array.isArray(root._ocComHistoryGroups)) {
+      return globalGroups.filter(function(k){return root._ocComHistoryGroups.indexOf(k)!==-1;});
+    }
+    var first=globalGroups.indexOf(root._ocComHistoryGroup)!==-1?root._ocComHistoryGroup:'';
+    root._ocComHistoryGroups=first?[first]:[];
+    return root._ocComHistoryGroups.slice();
+  }
+  function reflectGroupButtons() {
+    var chosen=groupSelection();
+    var bar=container.querySelector('[data-commissions-toolbar] [role="tablist"]');
+    if (bar) bar.setAttribute('aria-multiselectable','true');
+    container.querySelectorAll('[data-commissions-view-global]').forEach(function(b) {
+      var active=chosen.indexOf(b.dataset.commissionsViewGlobal)!==-1;
+      b.setAttribute('aria-selected',active?'true':'false');
+      b.tabIndex=0;
+      b.classList.toggle('hundida',active);
+    });
+  }
+  var originalGlobalSummary=root.resumenComisionesGlobalHtml;
+  if (typeof originalGlobalSummary==='function') {
+    root.resumenComisionesGlobalHtml=function(sales) {
+      var chosen=groupSelection();
+      if (chosen.length<=1) {
+        root._ocComHistoryGroup=chosen[0]||'total';
+        return originalGlobalSummary(sales);
+      }
+      // Each renderer uses the same audited projection with a different
+      // GROUP. Keep lazy details keyed by [group,id] to prevent collisions.
+      var parts=[],detailRows=new Map();
+      chosen.forEach(function(g,i) {
+        root._ocComHistoryGroup=g;
+        var holder=document.createElement('div');
+        holder.innerHTML=originalGlobalSummary(sales);
+        var panel=holder.querySelector('[data-commissions-summary="all"]');
+        if (!panel) return;
+        var rows=root._ocComHistoryRowsPorGrupo;
+        panel.querySelectorAll('[data-comm-history-group]').forEach(function(el) {
+          var oldKey=el.dataset.commGroup, key=JSON.stringify([g,oldKey]);
+          el.setAttribute('data-comm-group',key);
+          if (rows && rows.has(oldKey)) detailRows.set(key,rows.get(oldKey));
+        });
+        if (i===0) {
+          parts.push(panel.outerHTML); // Exactly one global totals/filter/search header.
+        } else {
+          var section=document.createElement('section');
+          section.dataset.commissionsSummary='all';
+          section.dataset.commissionsCurrentView=g;
+          var title=panel.querySelector('h3.seccion');
+          if (title) section.appendChild(title.cloneNode(true));
+          var cards=panel.querySelectorAll('[data-comm-history-group]');
+          cards.forEach(function(card){section.appendChild(card.cloneNode(true));});
+          if (!cards.length) {
+            var empty=document.createElement('p');
+            empty.textContent=tx('No hay ventas registradas en esta vista.','No recorded sales in this view.');
+            section.appendChild(empty);
+          }
+          parts.push(section.outerHTML);
+        }
+      });
+      root._ocComHistoryGroup=chosen[0]||'total';
+      root._ocComHistoryRowsPorGrupo=detailRows;
+      return parts.join('');
+    };
+  }
+  var originalGlobalToggle=root.cambiarRangoComisionesGlobal;
+  if (typeof originalGlobalToggle==='function') {
+    root.cambiarRangoComisionesGlobal=function(tipo,valor) {
+      if (tipo!=='grupo') return originalGlobalToggle(tipo,valor);
+      var chosen=groupSelection();
+      if (valor==='total') chosen=[];
+      else if (globalGroups.indexOf(valor)!==-1) {
+        chosen=globalGroups.filter(function(g) {
+          return g===valor?chosen.indexOf(g)===-1:chosen.indexOf(g)!==-1;
+        });
+      } else return;
+      root._ocComHistoryGroups=chosen;
+      root._ocComHistoryGroup=chosen[0]||'total';
+      root._ocComHistoryFrom='';root._ocComHistoryTo='';
+      // Switching from a settlement month to All dates must still load the
+      // canonical complete history, preserving the current person selection.
+      var month=container.querySelector('[data-commissions-month]');
+      if (month && month.value && typeof root.cambiarMesComisiones==='function') {
+        root.cambiarMesComisiones('');
+        return;
+      }
+      var sales=root._ocComHistorySales;
+      if (Array.isArray(sales) && typeof root.resumenComisionesGlobalHtml==='function') {
+        var existing=container.querySelectorAll('[data-commissions-summary="all"]');
+        if (existing.length) {
+          var html=root.resumenComisionesGlobalHtml(sales);
+          existing.forEach(function(node){node.remove();});
+          var personPanel=container.querySelector('#comm-panel-person');
+          if (personPanel) personPanel.insertAdjacentHTML('beforebegin',html);
+          else container.insertAdjacentHTML('beforeend',html);
+          reflectGroupButtons();
+          setMode();
+          return;
+        }
+      }
+      if (typeof root.cargarComisiones==='function') root.cargarComisiones();
+    };
+  }
+
   var original=root.cambiarVistaComisiones;
   if (typeof original !== 'function') return;
   root.cambiarVistaComisiones = function (vista) {
@@ -328,7 +443,7 @@
       e.preventDefault();
       if (isPerson()) {
         root.cambiarVistaComisiones('product');
-        if (typeof root.cambiarRangoComisionesGlobal === 'function') root.cambiarRangoComisionesGlobal('grupo','total');
+        // Toggling Person off leaves every other group switch unchanged.
       } else root.cambiarVistaComisiones('person');
       return;
     }
