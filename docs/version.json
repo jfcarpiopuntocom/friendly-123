@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.24",
+  "version": "v0.9.25",
   "fecha": "2026-11-24",
-  "changelog": "v0.9.24 P0 urgente: recargas programáticas únicamente con la splash existente pintada (nunca en segundo plano ni sin splash), cursor contiguo y aislamiento de sesión en Cloudflare relay (R8-01/R8-02), migración segura y watchdog/onblocked IDB en libro de hechos (R8-03/R8-04), y endurecimiento R7 de custodia opId, poda por intención verificada y caché terminal aislada.",
+  "changelog": "v0.9.25 higiene de seguridad: política Content-Security-Policy (CSP) verificada sin eval/object/base hijacking y cero violaciones en Chromium y WebKit; alineación de pruebas central-pin (C218), incremental Yjs (C186) y comisiones por producto (C251).",
   "requerida": false,
-  "shell": "f123-shell-v924",
+  "shell": "f123-shell-v925",
   "apagar": [],
-  "releaseName": "v0.9.24",
-  "cacheGeneration": "golden462"
+  "releaseName": "v0.9.25",
+  "cacheGeneration": "golden463"
 }
