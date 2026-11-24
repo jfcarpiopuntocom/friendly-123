@@ -26,7 +26,7 @@ for (const engine of [chromium,webkit]) {
         typeof window.resumenComisionesGlobalHtml==='function' &&
         typeof window.cambiarRangoComisionesGlobal==='function' &&
         !!window.F123CommissionsByPerson);
-      await page.addStyleTag({content:'#oc-gate,#puerta,#oc-splash{display:none!important;pointer-events:none!important}'});
+      await page.addStyleTag({content:'#oc-gate,#puerta,#oc-splash{display:none!important;pointer-events:none!important}#vista-comisiones{display:block!important}'});
       await page.evaluate(sales=>{
         window.OCAuth=Object.assign(window.OCAuth||{},{rolActual:()=> 'dueno',esDemo:()=>false});
         window._ocComHistoryGroups=['producto'];
