@@ -3722,7 +3722,8 @@
         API.__opIdsTerminales20Cache = new Set();
         API.__opIdsTerminales20Scope = alcanceInicio;
       }
-      if (!piloto || typeof piloto.crearAlmacenDurableOpsTipadas !== "function" ||
+      if (typeof piloto === "undefined" || !piloto ||
+          typeof piloto.crearAlmacenDurableOpsTipadas !== "function" ||
           typeof window === "undefined" || !window.indexedDB ||
           API.__refrescandoOpIds20Alcance === alcanceInicio) {
         return Promise.resolve(API.opIdsTerminales20());
