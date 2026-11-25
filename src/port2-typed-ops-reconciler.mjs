@@ -73,6 +73,7 @@ export function createTypedOpsReconciler({
   const settledPayloads = new Map();
   const settledReceipts = new Map();
   const inFlight = new Map();
+  const flightVersions = new WeakMap();
   const timers = new Map();
   let paused = false;
   let destroyed = false;
@@ -133,15 +134,24 @@ export function createTypedOpsReconciler({
   async function persist(entry) {
     // store.save must resolve only after its REAL transaction commits. A write
     // rejection means no HTTP request is allowed (even if the write partly ran).
-    await store.save({
-      opId: entry.opId,
-      command: { ...entry.command },
-      sameDoLocked: entry.sameDoLocked === true,
-      attempts: entry.attempts,
-      state: entry.state,
-      createdAt: entry.createdAt,
-      updatedAt: entry.updatedAt
-    });
+    try {
+      await store.save({
+        opId: entry.opId,
+        command: { ...entry.command },
+        sameDoLocked: entry.sameDoLocked === true,
+        attempts: entry.attempts,
+        state: entry.state,
+        createdAt: entry.createdAt,
+        updatedAt: entry.updatedAt
+      });
+    } catch (err) {
+      if (err?.code === 'TYPED_OPS_ALREADY_QUARANTINED') {
+        entry.state = 'quarantined';
+        entries.set(entry.opId, entry);
+        clearTimer(entry.opId);
+      }
+      throw err;
+    }
   }
 
   function clearTimer(opId) {
@@ -172,6 +182,8 @@ export function createTypedOpsReconciler({
   }
 
   function trackFlight(opId, payloadKey, fn) {
+    const current = entries.get(opId);
+    if (current) flightVersions.set(current, {});
     const promise = (async () => {
       try {
         return await fn();
@@ -231,6 +243,10 @@ export function createTypedOpsReconciler({
       if (!prepared.verifiedAck) await persist(prepared);
       entries.set(opId, prepared);
     } catch (err) {
+      if (err?.code === 'TYPED_OPS_ALREADY_QUARANTINED') {
+        return makeOutcome({stage:'conflict-quarantine', quarantine:true, status:409,
+          fallbackLegacy:false, reconcileRequired:false});
+      }
       if (err && err.code === 'TYPED_OPS_ALREADY_SETTLED') {
         settledOpIds.add(opId);
         const knownKey = settledPayloads.get(opId);
@@ -537,10 +553,12 @@ export function createTypedOpsReconciler({
     }
     const candidates = Array.from(entries.values()).filter(
       e => e.state !== 'quarantined' && !inFlight.has(e.opId)
-    );
+    ).map(entry => ({ entry, flightVersion: flightVersions.get(entry) }));
     const results = [];
-    for (const entry of candidates) {
+    for (const { entry, flightVersion } of candidates) {
       if (destroyed || paused || !isVisible()) break;
+      if (entries.get(entry.opId) !== entry || inFlight.has(entry.opId) ||
+          entry.state === 'quarantined' || flightVersions.get(entry) !== flightVersion) continue;
       clearTimer(entry.opId);
       if (entry.state === 'paused-retry-exhausted' || entry.attempts >= Math.min(maxAttempts, 10)) {
         entry.attempts = 0;
