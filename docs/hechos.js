@@ -322,6 +322,7 @@
       }
       try {
         if (!dbVieja || !dbVieja.objectStoreNames || !dbVieja.objectStoreNames.contains(STORE)) {
+          if (!Array.isArray(dbs) || dbs.some(function (d) { return d && d.name === DB_NAME_VIEJA; })) { _registrarFalloMigracion(); return; }
           _marcarMigracionHecha();
           return;
         }
@@ -358,6 +359,7 @@
           return;
         }
         if (!lectura.registros.length) {
+          if (!Array.isArray(dbs) || dbs.some(function (d) { return d && d.name === DB_NAME_VIEJA; })) { _registrarFalloMigracion(); return; }
           _marcarMigracionHecha();
           return;
         }

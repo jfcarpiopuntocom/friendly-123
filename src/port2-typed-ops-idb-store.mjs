@@ -240,6 +240,13 @@ export function createTypedOpsIdbStore({ indexedDB, namespace, openTimeoutMs = 2
               fail(new Error('Persisted opId command payload mismatch'));
               return;
             }
+            // A stale tab may not reopen a command already quarantined by another connection.
+            if (existing?.value?.state === 'quarantined' && clean.state !== 'quarantined') {
+              const err = new Error('Persisted opId already quarantined');
+              err.code = 'TYPED_OPS_ALREADY_QUARANTINED';
+              fail(err);
+              return;
+            }
             const putReq = objectStore.put({ key, namespace, value: clean });
             putReq.onsuccess = () => done(true);
             putReq.onerror = () => fail(putReq.error || new Error('Typed-ops IndexedDB save failed'));

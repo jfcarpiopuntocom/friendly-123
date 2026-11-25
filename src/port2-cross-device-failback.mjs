@@ -196,14 +196,14 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
   }
 
   async function canDispatchOnLegacy(opId) {
-    if (!OP_ID.test(opId || '')) return false;
+    if (destroyed || !OP_ID.test(opId || '')) return false;
     const custody = getStoreCustody(store);
     if (custody.reserved20.has(opId) || latchedOrCommittedOpIds.has(opId)) return false;
     return withOpCustodyLock(store, opId, async () => {
-      if (custody.reserved20.has(opId) || latchedOrCommittedOpIds.has(opId)) return false;
+      if (destroyed || custody.reserved20.has(opId) || latchedOrCommittedOpIds.has(opId)) return false;
       try {
         const latched = await isLatchedToSameDo(opId);
-        return !latched;
+        return !destroyed && !latched && !custody.reserved20.has(opId);
       } catch (_) {
         // Fail-closed: if durable IDB cannot be read, NEVER authorize a legacy send
         // that could duplicate an already-latched 2.0 sale.
@@ -213,11 +213,13 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
   }
 
   async function assertLegacyAllowed(opId) {
+    if (destroyed) throw taggedError('coordinator destroyed', 'coordinator-destroyed');
     if (!OP_ID.test(opId || '')) {
       throw taggedError('invalid opId for legacy dispatch', 'invalid-opid');
     }
     const custody = getStoreCustody(store);
     return withOpCustodyLock(store, opId, async () => {
+      if (destroyed) throw taggedError('coordinator destroyed', 'coordinator-destroyed');
       let latched = custody.reserved20.has(opId) || latchedOrCommittedOpIds.has(opId);
       if (!latched) {
         try {
@@ -226,7 +228,8 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
           throw taggedError('durable store unavailable; legacy dispatch blocked fail-closed', 'durable-store-unavailable');
         }
       }
-      if (latched) {
+      if (destroyed) throw taggedError('coordinator destroyed', 'coordinator-destroyed');
+      if (latched || custody.reserved20.has(opId)) {
         throw taggedError('opId is irreversibly latched to same-do-only reconciliation and forbidden on legacy 1.0', 'latched-same-do-only');
       }
       return Object.freeze({ allowed: true, opId });
@@ -258,6 +261,11 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
       } catch (_) {
         if (claimedHere && !latchedOrCommittedOpIds.has(opId)) custody.reserved20.delete(opId);
         return Object.freeze({ committed: false, fallbackLegacy: false, stage: 'durable-store-unavailable' });
+      }
+
+      if (destroyed) {
+        if (claimedHere && !latchedOrCommittedOpIds.has(opId)) custody.reserved20.delete(opId);
+        return Object.freeze({ committed: false, fallbackLegacy: false, stage: 'coordinator-destroyed' });
       }
 
       // If we already failed back to legacy 1.0, only already-latched opIds must go to the SAME DO;
@@ -307,6 +315,9 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
         } else return Object.freeze({ ...res, fallbackLegacy: false,
           reconcileRequired: true, retryTarget: 'same-do-only', stage: 'already-latched' });
       }
+      if (destroyed && res?.fallbackLegacy === true) {
+        return Object.freeze({ ...res, fallbackLegacy: false, stage: 'coordinator-destroyed' });
+      }
       return res;
     });
   }
@@ -320,6 +331,7 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
     } catch (_) {
       return Object.freeze({ attempted: 0, results: Object.freeze([]), stage: 'durable-store-unavailable' });
     }
+    if (destroyed || !isVisible()) return Object.freeze({ attempted: 0, results: Object.freeze([]) });
     return reconciler.reconcileNow();
   }
 
