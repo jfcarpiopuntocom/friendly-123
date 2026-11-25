@@ -2691,6 +2691,8 @@
     });
     var entra = 0, sale = 0, nHoy = 0;
     var ventas = (e.ventas || []).filter(function (v) { return v && !v.anulada; }).map(function (v) {
+      // Read-only: the recorded retro adjustment replaces an empty zero split, never a real split.
+      if (_retroPorVenta[String(v.id)] && v.noCommission !== true && v.split && v.split.montoComisionSocio === 0 && !(Array.isArray(v.split.reparto) && v.split.reparto.some(Boolean))) v = Object.assign({}, v, {split:null});
       var p = prods[v.productoId] || {};
       var cant = Number(v.cantidad) || 0;
       var pu = window.OCBusinessReadModel.number(v.precioUnit), cu = window.OCBusinessReadModel.number(v.costoUnit);
@@ -2723,7 +2725,7 @@
         comisionPendiente: !v.split && !_retroPorVenta[String(v.id)] && v.noCommission !== true ? null : _ledgerCore ? +_ledgerCore.money((_ledgerDueVenta[String(v.id)] || 0) + (_retroPorVenta[String(v.id)] ? _retroPorVenta[String(v.id)].dueC : 0)).toFixed(2) : null,
         comisionRetenida: _ledgerCore ? _ledgerCore.money(_ledgerHeldVenta[String(v.id)] || 0) : 0,
         medioPagoComision: v.medioPagoComision || null, /* v391: como se pago */
-        asociadoNombre: asoc[v.ubicacionId] || (!v.split && _retroPorVenta[String(v.id)] && _retroPorVenta[String(v.id)].payeeId ? ((e.promotoras || []).find(function (x) { return x.id === _retroPorVenta[String(v.id)].payeeId; }) || {}).nombre || "" : ""),
+        asociadoNombre: !v.split && _retroPorVenta[String(v.id)] && _retroPorVenta[String(v.id)].payeeId ? ((e.promotoras || []).find(function (x) { return x.id === _retroPorVenta[String(v.id)].payeeId; }) || {}).nombre || "" : (asoc[v.ubicacionId] || ""),
         /* v457: lo mismo que emite /api/ventas/todas por el relay (mock-backend.js). Sin `mes`, `modoComision` y
            `ubicacionTipo` la pestania Commissions filtraba TODAS las ventas y la duena veia $0 en su propio equipo. */
         mes: v.fecha ? mesLocalDe(v.fecha, v.relojDesfaseMs) : "",
@@ -2736,7 +2738,7 @@
         fechaDevolucion: v.fechaDevolucion || (((e.ajustesComision || []).find(function(a){return a.id === v.devolucionId;}) || {}).fecha) || null,
         reparto: (v.split && v.split.reparto) ? v.split.reparto : null,
         asistenteNombre: (v.split && v.split.reparto && v.split.reparto[1]) ? ((e.promotoras || []).find(function (x) { return x.id === v.split.reparto[1].promotoraId; }) || {}).nombre || "" : "",
-        promotoraId: v.promotoraId || null,
+        promotoraId: !v.split && _retroPorVenta[String(v.id)] ? _retroPorVenta[String(v.id)].payeeId : (v.promotoraId || null),
       };
     });
 

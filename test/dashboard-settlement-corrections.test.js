@@ -212,3 +212,30 @@ test('later product commission settings do not erase frozen no-commission alloca
     zone: 'America/Guayaquil', coverage: { sales: true, expenses: true, adjustments: true, coherent: true } });
   assert.equal(result.houseAfterExpensesCents, 9000);
 });
+
+test('five real historical receipts: recorded retro adjustments replace only empty zero splits, no duplicate monthly payable',()=>{
+ const state=fixture();
+ state.ventas=Array.from({length:5},(_,i)=>({
+   id:'book-'+i,productoId:'p1',ubicacionId:'rack-1',promotoraId:'artist-1',
+   fecha:'2026-10-15T12:00:00Z',cantidad:1,precioUnit:15,costoUnit:1,
+   split:{montoComisionSocio:i===4?12.75:0,montoNetoDueno:i===4?2.25:15,comisionPct:i===4?85:0,
+          reparto:i===4?[{promotoraId:'artist-1',monto:12.75}]:[]}
+ }));
+ state.ajustesComision=state.ventas.slice(0,4).map(v=>({id:'adj-retro-'+v.id,tipo:'recalculo-retroactivo',
+   ventaId:v.id,productoId:'p1',ubicacionId:'rack-1',fecha:v.fecha,montoBruto:0,montoComisionSocio:12.75,
+   montoNetoDueno:-12.75,reparto:[{promotoraId:'artist-1',monto:12.75}],comisionPct:85}));
+ const original=JSON.stringify(state);
+ const history=require('../docs/core/commission-history.js');
+ const c=dashboard(state);
+ const check=(ctx,due,commission,rows)=>{
+   const h=history.project({sales:ctx.datos.ventas,group:'comisionista'});
+   assert.equal(h.totals.count,5);assert.equal(h.totals.gross,75);assert.equal(h.totals.commission,commission);
+   const r=ctx.cmFilas('2026-10'),g=ctx.cmAgrupar(r,'producto')[0];
+   assert.equal(r.length,rows);assert.equal(g.bruto,75);assert.equal(g.socio,commission);
+   assert.equal(g.pend,due);assert.equal(ctx.totalesHub().pend,due);
+ };
+ check(c,63.75,63.75,5);
+ assert.equal(JSON.stringify(state),original,'projection never rewrites source facts');
+ state.ventas[4].liquidada=true;check(dashboard(state),51,63.75,5);
+ state.ventas[4].liquidada=false;state.ajustesComision=[];check(dashboard(state),12.75,12.75,5);
+});
