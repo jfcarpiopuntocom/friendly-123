@@ -13,7 +13,9 @@ const later=current.replace('const CACHE = "'+shell(current)+'";','const CACHE =
 assert.notEqual(later,current,'second takeover must remain distinct on every release');
 
 const debugWorker = '\nconst fixtureWarnings=[];const fixtureWarn=console.warn.bind(console);console.warn=(...args)=>{fixtureWarnings.push(args.map(String).join(" "));fixtureWarn(...args);};\nself.addEventListener("message",event=>{if(event.data?.tipo!=="fixture-diagnostic")return;event.waitUntil((async()=>{const id=event.source.id,names=await caches.keys(),pins={};for(const n of names.filter(n=>n.includes("client-pins"))){const c=await caches.open(n);for(const k of await c.keys())pins[k.url]=await(await c.match(k)).text();}const matches={};for(const n of names.filter(n=>/^f123-shell-v/.test(n))){const c=await caches.open(n);matches[n]={plain:!!await c.match("./late.js"),query:!!await c.match("./late.js?after=takeover",{ignoreSearch:true})};}event.ports[0].postMessage({id,names,pins,matches,warnings:fixtureWarnings,clients:(await self.clients.matchAll({type:"window",includeUncontrolled:true})).map(c=>({id:c.id,url:c.url}))});})().catch(e=>event.ports[0].postMessage({error:String(e)})));});';
-const workers=[old,current+debugWorker,later+debugWorker],labels=['old','new','next'];
+// Trace exact production navigation checkpoints only in the fixture, without changing assertions or timing.
+const traceNavigation=src=>src.replace('const cache = await abrirCacheLocal();\n            const local = await cache.match(entrada);','console.log("AFF navigation begin",evento.resultingClientId);const cache = await abrirCacheLocal();\n            const local = await cache.match(entrada);console.log("AFF cached",!!local);').replace('try { fresca = await fetch(evento.request, { cache: "no-cache" }); } catch (_) {}','try { fresca = await fetch(evento.request, { cache: "no-cache" }); } catch (_) {} console.log("AFF network",!!fresca);').replaceAll('await fijarShellDeDocumento(evento.resultingClientId, CACHE_LOCAL);','console.log("AFF pin begin",evento.resultingClientId);await fijarShellDeDocumento(evento.resultingClientId, CACHE_LOCAL);console.log("AFF pin done");');
+const workers=[old,traceNavigation(current)+debugWorker,traceNavigation(later)+debugWorker],labels=['old','new','next'];
 async function diagnostic(page){
  return page.evaluate(()=>new Promise(resolve=>{const c=new MessageChannel(),t=setTimeout(()=>{c.port1.close();resolve({timeout:true})},3000);c.port1.onmessage=e=>{clearTimeout(t);c.port1.close();resolve(e.data)};navigator.serviceWorker.controller.postMessage({tipo:"fixture-diagnostic"},[c.port2]);}));
 }
@@ -29,7 +31,7 @@ async function identity(page,expected) {
 for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]])test('SW document affinity '+name+': old document, late asset, two takeovers, PIN navigation and other channel',{timeout:120000},async()=>{
  let stage=0;
  const server=http.createServer((req,res)=>{
-  const p=new URL(req.url,'http://localhost').pathname;
+  const p=new URL(req.url,'http://localhost').pathname; console.log('AFF HTTP',name,stage,req.method,p);
   res.setHeader('Cache-Control','no-store');
   if(p==='/app/sw.js'){res.setHeader('Content-Type','text/javascript');return res.end(workers[stage]);}
   if(p==='/app/index.html'){res.setHeader('Content-Type','text/html');return res.end('<!doctype html><html><body data-release="'+labels[stage]+'"><script>navigator.serviceWorker.register("./sw.js",{updateViaCache:"none"});</script></body></html>');}
@@ -43,9 +45,9 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]])test('SW do
  const update=async(page)=>page.evaluate(async()=>{const r=await navigator.serviceWorker.getRegistration();await r.update()});
  try{
   browser=await engine.launch({headless:true});const ctx=await browser.newContext({serviceWorkers:'allow'});
-  const a=await ctx.newPage();await a.goto(url);await identity(a,shell(old));
+  const a=await ctx.newPage();a.on('console',m=>console.log('AFF A',m.text()));a.on('requestfailed',r=>console.log('AFF A failure',r.url(),r.failure()));await a.goto(url);await identity(a,shell(old));
   await a.reload();await identity(a,shell(old));
-  const b=await ctx.newPage();await b.goto(url);await identity(b,shell(old));
+  const b=await ctx.newPage();b.on('console',m=>console.log('AFF B',m.text()));b.on('requestfailed',r=>console.log('AFF B failure',r.url(),r.failure()));await b.goto(url);await identity(b,shell(old));
   await a.evaluate(()=>caches.open('f123-shell-v100-golden1-next'));
   assert.deepEqual(await read(a),[200,'/* old */']);
   stage=1;await update(a);await identity(a,shell(current));await identity(b,shell(current));
@@ -63,7 +65,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]])test('SW do
   stage=2;await update(a);await identity(a,shell(later));await identity(b,shell(later));
   assert.deepEqual(await read(a),[200,'/* new */']);
   assert.deepEqual(await read(b),[200,'/* old */']);
-  await b.reload();await identity(b,shell(later));
+  console.log('AFF before B reload',JSON.stringify(await diagnostic(b)));await b.reload();await identity(b,shell(later));console.log('AFF after B reload');
   assert.equal(await b.locator('body').getAttribute('data-release'),'next');
   assert.deepEqual(await read(b),[200,'/* next */']);
   assert.deepEqual(await read(a),[200,'/* new */']);
