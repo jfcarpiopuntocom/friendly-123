@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.29",
+  "version": "v0.9.30",
   "fecha": "2026-11-25",
-  "changelog": "v0.9.29: diagnóstico compatible de identidad del Service Worker y actualización segura ante desfase o falta de respuesta.",
+  "changelog": "v0.9.30: directorio plegable de asociados y consignadores, con grupo sin comisiones.",
   "requerida": false,
-  "shell": "f123-shell-v929",
+  "shell": "f123-shell-v930",
   "apagar": [],
-  "releaseName": "v0.9.29",
-  "cacheGeneration": "golden467"
+  "releaseName": "v0.9.30",
+  "cacheGeneration": "golden468"
 }
