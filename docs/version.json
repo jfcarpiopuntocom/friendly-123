@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.28",
+  "version": "v0.9.29",
   "fecha": "2026-11-25",
-  "changelog": "v0.9.28: recuperación de sincronización de catálogo tras una reconexión, con reintentos y protección de operaciones en curso.",
+  "changelog": "v0.9.29: diagnóstico compatible de identidad del Service Worker y actualización segura ante desfase o falta de respuesta.",
   "requerida": false,
-  "shell": "f123-shell-v928",
+  "shell": "f123-shell-v929",
   "apagar": [],
-  "releaseName": "v0.9.28",
-  "cacheGeneration": "golden466"
+  "releaseName": "v0.9.29",
+  "cacheGeneration": "golden467"
 }
