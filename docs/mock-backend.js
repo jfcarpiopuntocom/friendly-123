@@ -6626,37 +6626,6 @@
 
   // One canonical sales adapter, reused by legacy reads and the atomic reporting cut.
   // No await: sales, expense records and revision are serialized in one JS turn.
-  function _promotorasConSaldoORevision() {
-    const core = _payoutCore();
-    if (!core || !core.buildObligations || payoutConflicts.length || payoutQuarantine.length) return null;
-    const sales = ventasActivas().concat(Array.prototype.filter.call(ventas, v => v && v.anulada && v.split && !_demoOculto("ventas", v)));
-    const loc = new Map(ubicaciones.map(u => [String(u.id), u]));
-    const visibles = new Set();
-    // Unknown or contradictory receipts must never be presented as a verified zero.
-    for (const v of sales) {
-      if (!v || v.anulada || v.noCommission === true && !v.split) continue;
-      if (!v.split || !Number.isFinite(v.split.montoComisionSocio)) {
-        const id = v.promotoraId || (loc.get(String(v.ubicacionId)) || {}).promotoraId;
-        if (id) visibles.add(String(id));
-        else if (v.modoComision !== "counter") return null;
-      } else if (Array.isArray(v.split.reparto) && v.split.reparto.some(r => !r || !Number.isFinite(r.monto))) {
-        return null;
-      }
-    }
-    for (const a of ajustesComision) {
-      if (!a || !Number.isFinite(a.montoComisionSocio) || Array.isArray(a.reparto) && a.reparto.some(r => !r || !Number.isFinite(r.monto))) return null;
-    }
-    const obs = core.buildObligations({ sales, saleContext: ventas, adjustments: ajustesComision, locations: ubicaciones,
-      payouts, payoutConflicts, holdDays: ajusteRetencion ? ajusteRetencion.dias : 0, asOf: new Date().toISOString() });
-    for (const o of obs) {
-      // Do not net across historical months/racks or hide held/review amounts.
-      if (!Number.isSafeInteger(o.dueCents) || o.dueCents > 0 || o.heldCents > 0 || o.overpaidCents > 0 || o.directionReview) {
-        if (!o.payeeId) return null;
-        visibles.add(String(o.payeeId));
-      }
-    }
-    return visibles;
-  }
   function ventasParaReportes(uid) {
       const _coreVentas = _payoutCore();
       const _obsVentas = _coreVentas ? _coreVentas.buildObligations({ sales:ventasActivas(), adjustments:ajustesComision, locations:ubicaciones, payouts, payoutConflicts, holdDays:ajusteRetencion ? ajusteRetencion.dias : 0, asOf:new Date().toISOString() }) : [];
@@ -7389,16 +7358,10 @@
       // ---- Asociados/as (comision por traer gente) ----
       /* El PIN del artista NUNCA sale por aqui (lo ve cualquiera que abra la
          lista). Se expone solo si tiene acceso activo. (benchmark #6) */
-      if (path === "/api/promotoras" && (!opts || opts.method !== "POST")) {
-        let visibles = null;
-        const pedirSaldo = q.get("saldo") === "1";
-        if (pedirSaldo) { try { visibles = _promotorasConSaldoORevision(); } catch (_) {} }
-        return J(promotoras.filter((p) => !p.borrado && !_demoOculto("promotoras", p)).map((p) => {
-          const { accesoArtista, ...resto } = p;
-          return { ...resto, tieneAccesoArtista: !!(accesoArtista && accesoArtista.activo), tienePercha: _perchasDeArtista(p.id).length > 0,
-            ...(pedirSaldo ? { sinComisiones: visibles !== null && !visibles.has(String(p.id)) } : {}) };
-        }));
-      }
+      if (path === "/api/promotoras" && (!opts || opts.method !== "POST")) return J(promotoras.filter((p) => !p.borrado && !_demoOculto("promotoras", p)).map((p) => {
+        const { accesoArtista, ...resto } = p;
+        return { ...resto, tieneAccesoArtista: !!(accesoArtista && accesoArtista.activo), tienePercha: _perchasDeArtista(p.id).length > 0 };
+      }));
       /* PUT /api/promotoras/:id/acceso { pin?, activo } — solo dueno/admin.
          Fija, cambia o quita el PIN de artista. El PIN no choca con equipo,
          PINs integrados, reservados ni otro artista (si chocara con el del
