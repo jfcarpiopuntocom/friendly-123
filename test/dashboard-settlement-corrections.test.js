@@ -30,7 +30,7 @@ function dashboard(state) {
   context.rendered = node;
   vm.createContext(context);
   for (const [begin, end] of [
-    ['  function cmMesActual()', '  /* Para pruebas de navegador:'],
+    ['  var cmDesde = "", cmHasta = "", cmGrupo = "total";', '  /* Para pruebas de navegador:'],
     ['  function datosDesdeLocal(e)', '  /* El color Simon'],
     ['  function totalesHub()', '  function textoVenta('],
   ]) {

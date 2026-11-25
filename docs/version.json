@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.33",
+  "version": "v0.9.32",
   "fecha": "2026-11-25",
-  "changelog": "v0.9.33: informes de comisiones leen ajustes retroactivos registrados sin duplicar saldos.",
+  "changelog": "v0.9.32: informes de comisiones leen ajustes retroactivos registrados sin duplicar saldos.",
   "requerida": false,
-  "shell": "f123-shell-v933",
+  "shell": "f123-shell-v932",
   "apagar": [],
-  "releaseName": "v0.9.33",
-  "cacheGeneration": "golden471"
+  "releaseName": "v0.9.32",
+  "cacheGeneration": "golden470"
 }
