@@ -417,7 +417,7 @@ async function leerShellDeDocumento(id) {
   if (!id) return null;
   if (!afinidadesDocumento.has(id)) {
     const lectura = (async () => {
-      const r = await caches.match(claveDeDocumento(id), { cacheName: cacheDeAfinidad() });
+      const r = await (await caches.open(cacheDeAfinidad())).match(claveDeDocumento(id));
       if (!r) return null;
       const nombre = await r.text();
       return nombre === "?" || esDeMiCanal(nombre) && /^f123-shell-v[0-9]+(?:-|$)/.test(nombre) ? nombre : "?";
@@ -433,9 +433,11 @@ async function fijarShellDeDocumento(id, nombre) {
   afinidadesDocumento.set(id, Promise.resolve(nombre));
 }
 function clienteDeMiCanal(cliente) {
-  const url = new URL(cliente.url), scope = new URL(self.registration.scope);
-  if (url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname)) return false;
-  return !/^(next|previo)\//.test(url.pathname.slice(scope.pathname.length));
+  try {
+    const url = new URL(cliente.url), scope = new URL(self.registration.scope);
+    if (url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname)) return false;
+    return !/^(next|previo)\//.test(url.pathname.slice(scope.pathname.length));
+  } catch (_) { return false; }
 }
 async function prepararShellPorDocumento(nombres) {
   const anteriores = nombres.filter(n => esDeMiCanal(n) && /^f123-shell-v[0-9]+(?:-|$)/.test(n) && n !== CACHE_LOCAL);
