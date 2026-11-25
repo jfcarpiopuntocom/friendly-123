@@ -6076,15 +6076,8 @@ function renderListaPromotorasViva(query){
     const campos = [pr.nombre, pr.telefono, pr.cedula, pr.banco, pr.cuenta, pr.direccion];
     return campos.some(v => v && normalizarTexto(v).includes(q));
   });
-  const sinComisiones = filtrados.filter(pr => pr.sinComisiones === true);
-  const conSaldo = filtrados.filter(pr => pr.sinComisiones !== true);
-  const previo = cont.querySelector("[data-promotoras-sin-comisiones]");
-  const es = document.documentElement.lang === "es";
-  const abierto = q || (previo && previo.open);
-  const plegados = sinComisiones.length
-    ? `<details data-promotoras-sin-comisiones${abierto ? " open" : ""} class="tag-card" style="text-align:left;padding:12px 16px;margin:0 0 10px;"><summary style="cursor:pointer;min-height:44px;"><strong style="font-size:16px;color:var(--ink);">${es ? "Sin comisiones" : "No commissions"} (${sinComisiones.length})</strong></summary>${sinComisiones.map(pr => tarjetaPromotora(pr)).join("")}</details>` : "";
   cont.innerHTML = filtrados.length
-    ? conSaldo.map(pr => tarjetaPromotora(pr)).join("") + plegados
+    ? filtrados.map(pr => tarjetaPromotora(pr)).join("")
     : (_promotorasVivasCache.length
         ? `<p style="font-size:14px;color:var(--ink-soft);">${window.tf("comm.g.noneMatch", {q: escHtml(query)})}</p>`
         : `<p style="font-size:14px;color:var(--ink-soft);">${window.t("comm.g.noneYet")}</p>`);
@@ -6105,19 +6098,13 @@ function renderListaPromotorasViva(query){
     abrirEditorComisionista(btn.dataset.abrirPromotora, _promotorasVivasCache.find(x => x.id === btn.dataset.abrirPromotora));
   }));
 }
-let _promotorasGestionRun = 0;
 async function renderGestionPromotoras(){
   const box = document.getElementById("gestionPromotoras");
   if (!box) return;
-  const run = ++_promotorasGestionRun;
   let lista, encargados = [], proveedoresConsig = [];
   try {
-    const r = await fetch(`${API}/promotoras?saldo=1`);
-    if (!r.ok) throw Error("promotoras-http");
-    lista = await r.json();
-    if (!Array.isArray(lista)) throw Error("promotoras-invalid");
+    lista = await (await fetch(`${API}/promotoras`)).json();
   } catch (_) {
-    if (run !== _promotorasGestionRun) return;
     box.innerHTML = `<p style="font-size:14px;color:var(--rojo-ink,#a3392a);">${window.t("comm.g.loadFail")}</p>`;
     return;
   }
@@ -6128,13 +6115,6 @@ async function renderGestionPromotoras(){
     (prods||[]).forEach(p => { if (p.tipoProveedor === "consignacion" && p.proveedor) nombres.add(p.proveedor); });
     proveedoresConsig = [...nombres].sort((a,b) => a.localeCompare(b));
   } catch (_) { proveedoresConsig = []; }
-  if (run !== _promotorasGestionRun || document.getElementById("gestionPromotoras") !== box) return;
-  const anterior = box.querySelector("[data-promotoras-directorio]");
-  const abierto = !anterior || anterior.open;
-  const buscarAnterior = box.querySelector("#promBuscar");
-  const queryAnterior = buscarAnterior ? buscarAnterior.value : "";
-  const sinAnterior = box.querySelector("[data-promotoras-sin-comisiones]");
-  const sinAbierto = !!(sinAnterior && sinAnterior.open);
   box.innerHTML = `
     <h3 class="seccion" style="font-size:16px;margin-top:0;">${window.t("comm.g.heading")}</h3>
     <div class="tag-card" style="padding:14px;display:flex;flex-direction:column;gap:10px;">
@@ -6168,7 +6148,7 @@ async function renderGestionPromotoras(){
       <p style="font-size:14px;color:var(--ink-soft);margin:0;">${window.t("comm.g.dualRoleNote")}</p>
     </div>
     <p id="promMsg" style="font-size:14px;font-weight:700;margin:8px 0 0;"></p>
-    <details data-promotoras-directorio${abierto ? " open" : ""} style="margin-top:22px;"><summary style="cursor:pointer;min-height:44px;color:var(--ink);"><h3 class="seccion" style="font-size:16px;margin:0;">${window.t("comm.g.listHeading")}</h3></summary>
+    <h3 class="seccion" style="font-size:16px;margin:22px 0 0;">${window.t("comm.g.listHeading")}</h3>
     <div class="tag-card" style="padding:10px 14px;display:flex;align-items:center;gap:12px;margin-top:12px;">
       <svg width="26" height="26" viewBox="0 0 16 16" aria-hidden="true" style="flex-shrink:0;">
         <circle cx="6.6" cy="6.6" r="4.8" fill="none" stroke="var(--azul-medio,#2E6278)" stroke-width="2.2"/>
@@ -6178,14 +6158,11 @@ async function renderGestionPromotoras(){
         style="flex:1;min-width:0;padding:10px 12px;font-size:16px;border:2px solid var(--azul-medio);border-radius:4px;">
     </div>
     <p id="promBuscarConteo" style="font-size:14px;color:var(--ink-soft);margin:6px 2px 0;"></p>
-    <div id="listaPromotoras" style="margin-top:10px;"></div></details>`;
+    <div id="listaPromotoras" style="margin-top:10px;"></div>`;
   _promotorasVivasCache = lista.slice().sort((a, b) => a.nombre.localeCompare(b.nombre));
   window.OCPromotorasCache = _promotorasVivasCache;
   const buscarPromEl = document.getElementById("promBuscar");
-  if (buscarPromEl) buscarPromEl.value = queryAnterior;
-  renderListaPromotorasViva(queryAnterior);
-  const sinActual = box.querySelector("[data-promotoras-sin-comisiones]");
-  if (sinActual && sinAbierto) sinActual.open = true;
+  renderListaPromotorasViva(buscarPromEl ? buscarPromEl.value : "");
   if (buscarPromEl && !buscarPromEl.dataset.listo) {
     buscarPromEl.dataset.listo = "1";
     buscarPromEl.addEventListener("input", () => renderListaPromotorasViva(buscarPromEl.value));
@@ -6242,6 +6219,16 @@ async function renderGestionPromotoras(){
     try { window.OCReactivo && window.OCReactivo.emitir("comisionistas"); } catch (_) {} // túnel: aparece enseguida en los pulldowns
     renderGestionPromotoras();
   });
+}
+function rankingComisionistasPlegable(ranking, es, titulo, tarjeta) {
+  if (!Array.isArray(ranking) || !ranking.length) return "";
+  const cont = document.getElementById("rankingComisiones");
+  const anterior = cont && cont.querySelector("[data-comm-ranking-fold]");
+  const sinAnterior = cont && cont.querySelector("[data-comm-ranking-zero]");
+  const con = [], sin = [];
+  ranking.forEach((r, i) => (r.comision === 0 ? sin : con).push(tarjeta(r, i)));
+  return '<details data-comm-ranking-fold'+(!anterior || anterior.open ? ' open' : '')+' style="margin-bottom:20px;"><summary style="cursor:pointer;min-height:44px;color:var(--ink);"><h3 class="seccion" style="font-size:16px;margin-top:0;">'+titulo+'</h3></summary>'
+    +con.join("")+(sin.length?'<details data-comm-ranking-zero'+(sinAnterior && sinAnterior.open?' open':'')+'><summary style="cursor:pointer;min-height:44px;color:var(--ink);font-weight:700;">'+(es?"Sin comisiones":"No commissions")+' ('+sin.length+')</summary>'+sin.join("")+'</details>':"")+'</details>';
 }
 async function abrirEditorComisionista(id, pr){
   if (!pr) {
@@ -7403,11 +7390,11 @@ function resumenComisionesGlobalHtml(sales){
           comision:+r.comision.toFixed(2),diasSinVenta:Number.isFinite(ts)?Math.max(0,Math.floor((Date.now()-ts)/86400000)):null,
           topSku:top?{sku:top[0],unidades:top[1]}:null};
       }).sort(function(a,b){return b.ventasBrutas-a.ventasBrutas;});
-      const rankHtml=arr.length?'<h3 class="seccion" style="font-size:16px;margin-top:0;">'+(typeof t==="function"?t("comm.rankingHeading"):(es?"Ranking de comisionistas":"Associate ranking"))+'</h3><div style="margin-bottom:20px;">'+arr.map(function(r,i){
+      const rankHtml=rankingComisionistasPlegable(arr,es,(typeof t==="function"?t("comm.rankingHeading"):(es?"Ranking de comisionistas":"Associate ranking")),function(r,i){
         const dormido=(r.diasSinVenta!=null&&r.diasSinVenta>=7)?'<span class="badge-estado rojo" style="margin-left:8px;font-size:13px;">dormant '+r.diasSinVenta+'d</span>':"";
         const top=r.topSku?' · top SKU: '+escHtml(r.topSku.sku)+' ('+r.topSku.unidades+'u)':"";
         return '<div class="tag-card" style="display:flex;align-items:center;gap:12px;padding:12px 14px;margin-bottom:8px;"><span style="font-size:16px;font-weight:700;line-height:1;min-width:22px;">'+(i+1)+'.</span><div style="flex:1;"><strong>'+escHtml(r.nombre)+'</strong>'+dormido+'<div style="font-size:13px;color:var(--ink-soft);">'+r.ventasCount+' sold · gross '+fmtMoney(r.ventasBrutas)+top+'</div></div><strong style="color:#0B7A4B;font-size:16px;">'+fmtMoney(r.comision)+'</strong></div>';
-      }).join("")+'</div>':"";
+      });
       rankCont.innerHTML=rankHtml+matrizComisionistasHtml(arr);
     }
   }
@@ -7725,9 +7712,7 @@ async function cargarComisiones(){
     }
   }
   // Rec 04 + 09: ranking de asociados/as con su mejor SKU y alerta de dormido.
-  const rankHtml = (Array.isArray(ranking) && ranking.length) ? `
-    <h3 class="seccion" style="font-size:16px;margin-top:0;">${t("comm.rankingHeading")}</h3>
-    <div style="margin-bottom:20px;">${ranking.map((r, i) => {
+  const rankHtml = rankingComisionistasPlegable(ranking, document.documentElement.lang === "es", t("comm.rankingHeading"), (r, i) => {
       const med = `${i + 1}.`; // JFC 2026-09-23: sin medallas emoji (regla sin-emojis en la UI)
       const dormido = (r.diasSinVenta != null && r.diasSinVenta >= 7)
         ? `<span class="badge-estado rojo" style="margin-left:8px;font-size:13px;">dormant ${r.diasSinVenta}d</span>` : "";
@@ -7738,7 +7723,7 @@ async function cargarComisiones(){
           <div style="font-size:13px;color:var(--ink-soft);">${r.ventasCount} sold · gross ${fmtMoney(r.ventasBrutas)}${top}</div></div>
         <strong style="color:#0B7A4B;font-size:16px;">${fmtMoney(r.comision)}</strong>
       </div>`;
-    }).join("")}</div>` : "";
+    });
 
   // MEJORA 1 — Termómetro de meta animado.
   // Genera HTML de barra + etiqueta de color según el % alcanzado.
