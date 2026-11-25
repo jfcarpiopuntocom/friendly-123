@@ -185,6 +185,9 @@ test('invariantes al arrancar: avisa el dinero partido sin tocarlo y llena la pe
     const bufferUbi = () => page.evaluate(() => { let mejor = null, rmax = -1; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); try { const b = JSON.parse(localStorage.getItem(k)); const v = b && b.ventas && b.ventas.find((x) => x.id === 'v-vacia'); if (v && (Number(b._rev) || 0) > rmax) { rmax = Number(b._rev) || 0; mejor = v.ubicacionId; } } catch (_) {} } return mejor; });
     await page.waitForFunction(() => { for (let i = 0; i < localStorage.length; i++) { try { const b = JSON.parse(localStorage.getItem(localStorage.key(i))); if (b && b.ventas && b.ventas.some((x) => x.id === 'v-vacia')) return true; } catch (_) {} } return false; }, null, { timeout: 15000 });
     assert.equal(await bufferUbi(), '', 'antes de reiniciar la venta guardada trae la percha vacia (prueba de que el llenado es de v428)');
+    // C242: this is an intentional healthy reload, not a rapid crash loop.
+    // Wait for the real startup circuit breaker to retire its marker; never clear it in the fixture.
+    await page.waitForFunction(() => sessionStorage.getItem('f123_boot_crash_v1') === null, null, { timeout: 15000 });
     await page.reload({ waitUntil: 'networkidle' });
     await lista(page);
     await page.waitForTimeout(2500);

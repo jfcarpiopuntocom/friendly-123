@@ -93,6 +93,16 @@ test("E2 "+browserName+": SW update NEVER navigates in-app; PIN screen adopts wi
   console.log("E2 reopened PWA:",JSON.stringify(ctl));
   mark("wait reopened controller");
   await p.waitForFunction(()=>!!navigator.serviceWorker.controller,null,{timeout:15000});
+  // A cached health script uses MessagePort, while older callers use the global listener.
+  const identity=await p.evaluate(()=>new Promise(resolve=>{
+    const c=navigator.serviceWorker.controller,channel=new MessageChannel();
+    const timer=setTimeout(()=>{channel.port1.close();resolve(null);},3000);
+    channel.port1.onmessage=e=>{clearTimeout(timer);channel.port1.close();resolve(e.data);};
+    c.postMessage({tipo:'que-shell'},[channel.port2]);
+  }));
+  assert.equal(identity?.tipo,'shell-actual');
+  assert.equal(identity?.shell,shellNow);
+
   mark("mounted real update handler on controlled page");
   // Inject the exact E2 IIFE from the candidate source into the controlled tab.
   // This models a long-lived PWA without a navigation to bootstrap a new shell.

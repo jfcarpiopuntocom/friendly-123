@@ -244,13 +244,14 @@
     function actualizarEnSilencio() {
       if (_actualizacionEnCurso) return;
       _actualizacionEnCurso = true;
-      try {
-        navigator.serviceWorker.getRegistration().then(function (reg) {
-          if (!reg) return;
-          try { if (reg.waiting) reg.waiting.postMessage({ tipo: "skip-waiting" }); } catch (_) {}
-          try { reg.update(); } catch (_) {}
-        }).catch(function () {});
-      } catch (_) {}
+      Promise.resolve().then(function () {
+        return navigator.serviceWorker.getRegistration();
+      }).then(async function (reg) {
+        if (!reg) return;
+        if (reg.waiting) reg.waiting.postMessage({ tipo: "skip-waiting" });
+        await reg.update();
+        if (reg.waiting) reg.waiting.postMessage({ tipo: "skip-waiting" });
+      }).catch(function () {}).finally(function () { _actualizacionEnCurso = false; });
     }
     function ofrecerRecarga(esperado, sirviendo) {
       try {
@@ -290,32 +291,35 @@
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (v) {
           if (!v || !v.shell) return;   // version.json viejo, sin el campo: no se opina
-          var respondio = false;
-          var canal = new MessageChannel();
-          canal.port1.onmessage = function (e) {
-            respondio = true;
-            var sirviendo = e.data && e.data.shell;
-            var genSirviendo = e.data && e.data.cacheGeneration;
+          var sw = navigator.serviceWorker;
+          var terminado = false, timer;
+          function fin() {
+            if (terminado) return false;
+            terminado = true;
+            clearTimeout(timer);
+            sw.removeEventListener("message", recibir);
+            return true;
+          }
+          function recibir(e) {
+            if (e.source !== ctrl || !e.data || e.data.tipo !== "shell-actual" || !e.data.shell) return;
+            if (!fin() || sw.controller !== ctrl) return;
+            var sirviendo = String(e.data.shell);
+            var genSirviendo = e.data.cacheGeneration;
             var genEsperada = v.cacheGeneration ? ("-" + String(v.cacheGeneration).replace(/^-/, "")) : "";
-            var shellMal = !!(sirviendo && sirviendo !== v.shell);
             var genMal = !!(genEsperada && genSirviendo !== genEsperada);
-            /* v448 GOLDEN: el nombre publico queda congelado en v448, por eso
-               comparar solo shell ya no detecta un SW viejo. Un SW pre-golden2
-               responde sin cacheGeneration: eso TAMBIEN es mismatch y ofrece
-               recarga/purge, sin tocar datos del negocio. */
-            if (shellMal || genMal) {
+            if (sirviendo !== v.shell || genMal) {
               window.__ocMezcla = true;
-              ofrecerRecarga(v.shell + (genEsperada ? "@" + genEsperada : ""), (sirviendo || "?") + (genSirviendo ? "@" + genSirviendo : "@legacy"));
+              ofrecerRecarga(v.shell + (genEsperada ? "@" + genEsperada : ""), sirviendo + (genSirviendo ? "@" + genSirviendo : "@legacy"));
             }
-          };
-          try { ctrl.postMessage({ tipo: "que-shell" }, [canal.port2]); } catch (_) {}
-          /* Respaldo: un SW viejo no conoce el mensaje y no contesta nunca.
-             Ese silencio ya es la respuesta —esta desactualizado— pero no se
-             avisa por las dudas: sin saber que shell sirve, un aviso podria ser
-             falso. Se deja anotado en consola para el proximo que investigue. */
-          setTimeout(function () {
-            if (!respondio) { try { console.warn("[version] el service worker no contesto que shell sirve; probablemente sea anterior a v72"); } catch (_) {} }
-          }, 3000);
+          }
+          function sinRespuesta() {
+            if (!fin() || sw.controller !== ctrl) return;
+            try { console.warn("[version] sin respuesta de identidad del SW; se solicita actualización segura"); } catch (_) {}
+            actualizarEnSilencio();
+          }
+          sw.addEventListener("message", recibir);
+          timer = setTimeout(sinRespuesta, 3000);
+          try { ctrl.postMessage({ tipo: "que-shell" }); } catch (_) { sinRespuesta(); }
         })
         .catch(function () { /* sin red: no se opina de versiones */ });
     }
