@@ -6076,8 +6076,15 @@ function renderListaPromotorasViva(query){
     const campos = [pr.nombre, pr.telefono, pr.cedula, pr.banco, pr.cuenta, pr.direccion];
     return campos.some(v => v && normalizarTexto(v).includes(q));
   });
+  const sinComisiones = filtrados.filter(pr => pr.sinComisiones === true);
+  const conSaldo = filtrados.filter(pr => pr.sinComisiones !== true);
+  const previo = cont.querySelector("[data-promotoras-sin-comisiones]");
+  const es = document.documentElement.lang === "es";
+  const abierto = q || (previo && previo.open);
+  const plegados = sinComisiones.length
+    ? `<details data-promotoras-sin-comisiones${abierto ? " open" : ""} class="tag-card" style="text-align:left;padding:12px 16px;margin:0 0 10px;"><summary style="cursor:pointer;min-height:44px;"><strong style="font-size:16px;color:var(--ink);">${es ? "Sin comisiones" : "No commissions"} (${sinComisiones.length})</strong></summary>${sinComisiones.map(pr => tarjetaPromotora(pr)).join("")}</details>` : "";
   cont.innerHTML = filtrados.length
-    ? filtrados.map(pr => tarjetaPromotora(pr)).join("")
+    ? conSaldo.map(pr => tarjetaPromotora(pr)).join("") + plegados
     : (_promotorasVivasCache.length
         ? `<p style="font-size:14px;color:var(--ink-soft);">${window.tf("comm.g.noneMatch", {q: escHtml(query)})}</p>`
         : `<p style="font-size:14px;color:var(--ink-soft);">${window.t("comm.g.noneYet")}</p>`);
@@ -6098,13 +6105,19 @@ function renderListaPromotorasViva(query){
     abrirEditorComisionista(btn.dataset.abrirPromotora, _promotorasVivasCache.find(x => x.id === btn.dataset.abrirPromotora));
   }));
 }
+let _promotorasGestionRun = 0;
 async function renderGestionPromotoras(){
   const box = document.getElementById("gestionPromotoras");
   if (!box) return;
+  const run = ++_promotorasGestionRun;
   let lista, encargados = [], proveedoresConsig = [];
   try {
-    lista = await (await fetch(`${API}/promotoras`)).json();
+    const r = await fetch(`${API}/promotoras?saldo=1`);
+    if (!r.ok) throw Error("promotoras-http");
+    lista = await r.json();
+    if (!Array.isArray(lista)) throw Error("promotoras-invalid");
   } catch (_) {
+    if (run !== _promotorasGestionRun) return;
     box.innerHTML = `<p style="font-size:14px;color:var(--rojo-ink,#a3392a);">${window.t("comm.g.loadFail")}</p>`;
     return;
   }
@@ -6115,6 +6128,13 @@ async function renderGestionPromotoras(){
     (prods||[]).forEach(p => { if (p.tipoProveedor === "consignacion" && p.proveedor) nombres.add(p.proveedor); });
     proveedoresConsig = [...nombres].sort((a,b) => a.localeCompare(b));
   } catch (_) { proveedoresConsig = []; }
+  if (run !== _promotorasGestionRun || document.getElementById("gestionPromotoras") !== box) return;
+  const anterior = box.querySelector("[data-promotoras-directorio]");
+  const abierto = !anterior || anterior.open;
+  const buscarAnterior = box.querySelector("#promBuscar");
+  const queryAnterior = buscarAnterior ? buscarAnterior.value : "";
+  const sinAnterior = box.querySelector("[data-promotoras-sin-comisiones]");
+  const sinAbierto = !!(sinAnterior && sinAnterior.open);
   box.innerHTML = `
     <h3 class="seccion" style="font-size:16px;margin-top:0;">${window.t("comm.g.heading")}</h3>
     <div class="tag-card" style="padding:14px;display:flex;flex-direction:column;gap:10px;">
@@ -6148,7 +6168,7 @@ async function renderGestionPromotoras(){
       <p style="font-size:14px;color:var(--ink-soft);margin:0;">${window.t("comm.g.dualRoleNote")}</p>
     </div>
     <p id="promMsg" style="font-size:14px;font-weight:700;margin:8px 0 0;"></p>
-    <h3 class="seccion" style="font-size:16px;margin:22px 0 0;">${window.t("comm.g.listHeading")}</h3>
+    <details data-promotoras-directorio${abierto ? " open" : ""} style="margin-top:22px;"><summary style="cursor:pointer;min-height:44px;color:var(--ink);"><h3 class="seccion" style="font-size:16px;margin:0;">${window.t("comm.g.listHeading")}</h3></summary>
     <div class="tag-card" style="padding:10px 14px;display:flex;align-items:center;gap:12px;margin-top:12px;">
       <svg width="26" height="26" viewBox="0 0 16 16" aria-hidden="true" style="flex-shrink:0;">
         <circle cx="6.6" cy="6.6" r="4.8" fill="none" stroke="var(--azul-medio,#2E6278)" stroke-width="2.2"/>
@@ -6158,11 +6178,14 @@ async function renderGestionPromotoras(){
         style="flex:1;min-width:0;padding:10px 12px;font-size:16px;border:2px solid var(--azul-medio);border-radius:4px;">
     </div>
     <p id="promBuscarConteo" style="font-size:14px;color:var(--ink-soft);margin:6px 2px 0;"></p>
-    <div id="listaPromotoras" style="margin-top:10px;"></div>`;
+    <div id="listaPromotoras" style="margin-top:10px;"></div></details>`;
   _promotorasVivasCache = lista.slice().sort((a, b) => a.nombre.localeCompare(b.nombre));
   window.OCPromotorasCache = _promotorasVivasCache;
   const buscarPromEl = document.getElementById("promBuscar");
-  renderListaPromotorasViva(buscarPromEl ? buscarPromEl.value : "");
+  if (buscarPromEl) buscarPromEl.value = queryAnterior;
+  renderListaPromotorasViva(queryAnterior);
+  const sinActual = box.querySelector("[data-promotoras-sin-comisiones]");
+  if (sinActual && sinAbierto) sinActual.open = true;
   if (buscarPromEl && !buscarPromEl.dataset.listo) {
     buscarPromEl.dataset.listo = "1";
     buscarPromEl.addEventListener("input", () => renderListaPromotorasViva(buscarPromEl.value));
