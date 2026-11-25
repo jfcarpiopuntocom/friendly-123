@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.30",
+  "version": "v0.9.31",
   "fecha": "2026-11-25",
-  "changelog": "v0.9.30: directorio plegable de asociados y consignadores, con grupo sin comisiones.",
+  "changelog": "v0.9.31: aislamiento de recursos por documento durante actualizaciones del Service Worker.",
   "requerida": false,
-  "shell": "f123-shell-v930",
+  "shell": "f123-shell-v931",
   "apagar": [],
-  "releaseName": "v0.9.30",
-  "cacheGeneration": "golden468"
+  "releaseName": "v0.9.31",
+  "cacheGeneration": "golden469"
 }

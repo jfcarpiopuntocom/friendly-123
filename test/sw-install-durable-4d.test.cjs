@@ -22,7 +22,7 @@ function run(fail) {
   delete(name){actions.push('deleted:'+name);stores.delete(name);return Promise.resolve(true)}
  };
  const self={addEventListener(k,fn){handlers[k]=fn},skipWaiting(){actions.push('skipWaiting');return Promise.resolve()},clients:{claim(){},matchAll(){return Promise.resolve([])}}};
- const declarations='const CACHE='+JSON.stringify(shell)+',CACHE_GENERACION='+JSON.stringify(gen)+',CACHE_LOCAL=CACHE+CACHE_GENERACION,SHELL=["./index.html","./estado-idb.js","./mock-backend.js","./manual.html"];function esDeMiCanal(n){return n.startsWith("f123-shell-v")&&!/-(next|previo)$/.test(n)};function broadcastActualizacion(){};';
+ const declarations='const CACHE='+JSON.stringify(shell)+',CACHE_GENERACION='+JSON.stringify(gen)+',CACHE_LOCAL=CACHE+CACHE_GENERACION,CANAL="",SHELL=["./index.html","./estado-idb.js","./mock-backend.js","./manual.html"];function esDeMiCanal(n){return n.startsWith("f123-shell-v")&&!/-(next|previo)$/.test(n)};function broadcastActualizacion(){};';
  vm.runInNewContext(declarations+install+activate,{self,caches,Request:class{constructor(url){this.url=url}},console:{warn(){}},Promise,TextEncoder,crypto:{subtle:{}}},{timeout:1000});
  return {stores,handlers,actions,event:()=>({waitUntil(p){this.promise=Promise.resolve(p)}}),previous};
 }

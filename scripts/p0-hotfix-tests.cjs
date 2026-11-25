@@ -24,6 +24,7 @@ const MANDATORY=[
   'test/p0-business-guards-selection.test.cjs', // guard the mandatory gate itself
   'test/p0-sw-identity-protocol.test.cjs', // stale/silent SW, both reply channels
   'test/e2-sw-real-browser.test.cjs', // native Chromium/WebKit, PIN-only adoption
+  'test/p0-sw-document-affinity.test.cjs', // no mixed assets across controller takeovers
   'test/v448-golden-generation.test.js', // cache generation and channel isolation
   'test/p0-commission-month-guard.test.cjs', // past own/counter month and per-product summary
   'test/p0-belen-commissions-all-dates.test.cjs', // Belén 1AAA: both UIs, full history, optional dates, exact split
