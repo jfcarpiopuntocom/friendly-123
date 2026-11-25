@@ -32,3 +32,14 @@ test('P0 hotfix required check invokes exact selector and executes ALL selected 
  assert.match(workflow,/node scripts\/p0-hotfix-tests\.cjs/,'no manual test selection or caps');
  assert.match(workflow,/--test-concurrency=2.*"\$\{TESTS\[@\]\}"/,'execute all selected test files');
 });
+
+test('Every P0 release preserves SW identity and real PIN-only takeover coverage',()=>{
+ for(const changed of [['docs/sw.js'],['docs/mock-backend.js'],['docs/version.json'],['README.md']]){
+   const selected=selectP0Tests(changed);
+   for(const filename of ["test/p0-sw-identity-protocol.test.cjs","test/e2-sw-real-browser.test.cjs","test/v448-golden-generation.test.js"]){
+     assert.ok(fs.existsSync(path.join(__dirname,'..',filename)),filename+' exists');
+     assert.ok(MANDATORY.includes(filename),filename+' must stay mandatory');
+     assert.ok(selected.includes(filename),filename+' must execute on '+changed.join(','));
+   }
+ }
+});
