@@ -10,21 +10,24 @@ const activate=src.slice(src.indexOf('self.addEventListener("activate"'),src.ind
 const shell=/^const CACHE = "([^"]+)";/m.exec(src)?.[1],gen=/^const CACHE_GENERACION = "([^"]+)";/m.exec(src)?.[1];
 assert.match(shell,/^f123-shell-v\d+$/);assert.match(gen,/^-golden\d+$/);
 const current=shell+gen;
-function run(fail) {
+function run(fail, clients = []) {
  const previous='f123-shell-v567-golden128';
- const stores=new Map([[previous,new Set(['./index.html'])],[previous+'-next',new Set(['./index.html'])],[previous+'-previo',new Set(['./index.html'])]]), handlers={}, actions=[];
+ const stores=new Map([[previous,new Set(['./index.html'])],[previous+'-next',new Set(['./index.html'])],[previous+'-previo',new Set(['./index.html'])]]), handlers={}, actions=[], pins=new Map();
  const caches={
   open(name){if(!stores.has(name))stores.set(name,new Set());return Promise.resolve({
    add(req){if(fail==='all'||(fail==='optional'&&req.url==='./manual.html'))return Promise.reject(Object.assign(Error('quota'),{name:'QuotaExceededError'}));stores.get(name).add(req.url);return Promise.resolve()},
-   match(u){return Promise.resolve(stores.get(name).has(u)?{ok:true,json:()=>Promise.resolve({files:{}})}:null)}
+   match(u){return Promise.resolve(name.includes('client-pins')?(pins.has(u)?{text:async()=>pins.get(u)}:null):stores.get(name).has(u)?{ok:true,json:()=>Promise.resolve({files:{}})}:null)},
+   async put(u,response){pins.set(u,await response.text());actions.push('pin:'+u)},
+   async keys(){return [...pins.keys()].map(url=>({url}))},
+   async delete(u){return pins.delete(u)}
   })},
   keys(){return Promise.resolve([...stores.keys()])},
   delete(name){actions.push('deleted:'+name);stores.delete(name);return Promise.resolve(true)}
  };
- const self={addEventListener(k,fn){handlers[k]=fn},skipWaiting(){actions.push('skipWaiting');return Promise.resolve()},clients:{claim(){},matchAll(){return Promise.resolve([])}}};
+ const self={addEventListener(k,fn){handlers[k]=fn},skipWaiting(){actions.push('skipWaiting');return Promise.resolve()},registration:{scope:'https://fixture.test/app/'},clients:{claim(){},matchAll(){return Promise.resolve(clients)}}};
  const declarations='const CACHE='+JSON.stringify(shell)+',CACHE_GENERACION='+JSON.stringify(gen)+',CACHE_LOCAL=CACHE+CACHE_GENERACION,CANAL="",SHELL=["./index.html","./estado-idb.js","./mock-backend.js","./manual.html"];function esDeMiCanal(n){return n.startsWith("f123-shell-v")&&!/-(next|previo)$/.test(n)};function broadcastActualizacion(){};';
- vm.runInNewContext(declarations+install+activate,{self,caches,Request:class{constructor(url){this.url=url}},console:{warn(){}},Promise,TextEncoder,crypto:{subtle:{}}},{timeout:1000});
- return {stores,handlers,actions,event:()=>({waitUntil(p){this.promise=Promise.resolve(p)}}),previous};
+ vm.runInNewContext(declarations+install+activate,{self,caches,Request:class{constructor(url){this.url=url}},console:{warn(){}},Promise,URL,Response,TextEncoder,crypto:{subtle:{}}},{timeout:1000});
+ return {stores,handlers,actions,pins,event:()=>({waitUntil(p){this.promise=Promise.resolve(p)}}),previous};
 }
 test('quota rejects critical shell precache; old offline cache stays',async()=>{
  const h=run('all'),ev=h.event();h.handlers.install(ev);
@@ -43,4 +46,11 @@ test('missing optional asset keeps resilient install behavior',async()=>{
  const h=run('optional'),ev=h.event();h.handlers.install(ev);await ev.promise;
  assert.equal(h.actions.includes('skipWaiting'),true);
  assert.equal(h.stores.get(current).has('./manual.html'),false);
+});
+
+test('existing document pinned before skipWaiting; install never deletes previous shell',async()=>{
+ const h=run('none',[{id:'old-tab',url:'https://fixture.test/app/index.html'}]);const ev=h.event();h.handlers.install(ev);await ev.promise;
+ assert.equal(h.pins.get('https://fixture.test/app/__f123_client_shell__/old-tab'),h.previous);
+ assert.ok(h.actions.indexOf('pin:https://fixture.test/app/__f123_client_shell__/old-tab')<h.actions.indexOf('skipWaiting'));
+ assert.ok(h.stores.has(h.previous));assert.ok(!h.actions.some(a=>a.startsWith('deleted:')));
 });

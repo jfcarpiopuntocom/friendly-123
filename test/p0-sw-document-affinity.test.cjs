@@ -2,7 +2,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),http=require('node:http'),{execFileSync}=require('node:child_process');
 const {chromium,webkit}=require('playwright');
 const production=fs.readFileSync('docs/sw.js','utf8');
-const legacy=execFileSync('git',['show','26b374a38505908ff79d65433e7eaf234557fc6b:docs/sw.js'],{encoding:'utf8'});
+const legacy=execFileSync('git',['show','89551cc07db38e0eaa8c8f690f17720c3097ab1f:docs/sw.js'],{encoding:'utf8'});
 const narrow=src=>src.replace(/const SHELL = \[[\s\S]*?\n\];/,'const SHELL = ["./index.html","./late.js"];');
 const current=narrow(production),old=narrow(legacy);
 const shell=src=>/^const CACHE = "([^"]+)";/m.exec(src)[1];
