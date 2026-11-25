@@ -16,7 +16,7 @@ function runSwInstallWithAssets(entries, options = {}) {
   const swSrc = fs.readFileSync(path.join(docsDir, 'sw.js'), 'utf8');
   const installBlock = swSrc.slice(
     swSrc.indexOf('self.addEventListener("install"'),
-    swSrc.indexOf('self.addEventListener("activate"')
+    swSrc.indexOf('self.addEventListener("fetch"')
   );
   const filesMap = new Map(Object.entries(entries));
   const manifestSubset = { version: manifest.version, shell: manifest.shell, files: {} };
@@ -74,7 +74,8 @@ function runSwInstallWithAssets(entries, options = {}) {
     clients: { claim() {}, matchAll() { return Promise.resolve([]); } }
   };
   const caches = {
-    async open() { return cacheObj; }
+    async open() { return cacheObj; },
+    async keys() { return [manifest.shell + '-golden0']; }
   };
   const fetchFn = async (req) => {
     const rel = typeof req === 'string' ? req : req.url;
@@ -86,7 +87,8 @@ function runSwInstallWithAssets(entries, options = {}) {
   const decls = [
     'const CACHE = ' + JSON.stringify(manifest.shell) + ';',
     'const CACHE_GENERACION = "-golden0";',
-    'const CACHE_LOCAL = CACHE + CACHE_GENERACION;',
+    'const CACHE_LOCAL = CACHE + CACHE_GENERACION, CANAL = "";',
+    'function esDeMiCanal(n) { return n.startsWith("f123-shell-v") && !/-(next|previo)$/.test(n); }',
     'const SHELL = ' + JSON.stringify([...filesMap.keys()]) + ';'
   ].join('\n');
 
