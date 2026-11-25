@@ -577,15 +577,23 @@ self.addEventListener("fetch", (evento) => {
           evento.respondWith((async () => {
             const cache = await abrirCacheLocal();
             const local = await cache.match(entrada);
-            let fresca = null;
-            try { fresca = await fetch(evento.request, { cache: "no-cache" }); } catch (_) {}
-            if (local && fresca && fresca.ok) {
-              const [a,b] = await Promise.all([local.clone().arrayBuffer(), fresca.clone().arrayBuffer()]);
-              const [ha,hb] = await Promise.all([crypto.subtle.digest("SHA-256",a),crypto.subtle.digest("SHA-256",b)]);
-              if (new Uint8Array(ha).every((v,i)=>v===new Uint8Array(hb)[i])) {
-                await fijarShellDeDocumento(evento.resultingClientId, CACHE_LOCAL);
-                return limpiarRedireccion(fresca);
-              }
+            let timer;
+            const abort = new AbortController();
+            const fresca = await Promise.race([
+              (async () => {
+                try {
+                  const r = await fetch(evento.request, { cache: "no-cache", signal: abort.signal });
+                  if (!local || !r || !r.ok) return null;
+                  const [a,b] = await Promise.all([local.clone().arrayBuffer(), r.clone().arrayBuffer()]);
+                  const [ha,hb] = await Promise.all([crypto.subtle.digest("SHA-256",a),crypto.subtle.digest("SHA-256",b)]);
+                  return new Uint8Array(ha).every((v,i)=>v===new Uint8Array(hb)[i]) ? r : null;
+                } catch (_) { return null; }
+              })(),
+              new Promise(resolve => { timer = setTimeout(() => { abort.abort(); resolve(null); }, 3000); })
+            ]).finally(() => clearTimeout(timer));
+            if (fresca) {
+              await fijarShellDeDocumento(evento.resultingClientId, CACHE_LOCAL);
+              return limpiarRedireccion(fresca);
             }
             if (local) {
               await fijarShellDeDocumento(evento.resultingClientId, CACHE_LOCAL);

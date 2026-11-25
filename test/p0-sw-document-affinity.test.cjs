@@ -73,3 +73,63 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]])test('SW do
   await ctx.close();
  }finally{if(browser)await browser.close();await new Promise(r=>server.close(r));}
 });
+
+// Permanent deterministic regression: exact fetch handler, simulated network and clock.
+const runNavigationFixture = async function run(src,mode){
+ let handler,settled=false,value,error,aborts=0,reads=0,now=0,n=0;const pins=[],timers=new Map(),warnings=[];
+ class U{constructor(u,b){if(b&&u.startsWith("./"))u=(typeof b==="string"?b:b.href)+u.slice(2);const m=/^(https?:\/\/[^/]+)([^?]*)(\?.*)?$/.exec(u);if(!m)throw Error("bad url "+u);this.origin=m[1];this.pathname=m[2];this.search=m[3]||"";this.href=u}}
+ class R{constructor(body,o={}){this.body=body;this.status=o.status??200;this.ok=this.status>=200&&this.status<300;this.redirected=false;this.tag=o.tag||"fallback"}clone(){return this}async arrayBuffer(){if(this.tag==="network-hang-body")return new Promise(()=>{});return Uint8Array.from([...this.body].map(c=>c.charCodeAt(0))).buffer}}
+ class AC{constructor(){this.signal={aborted:false}}abort(){this.signal.aborted=true;aborts++}}
+ const flush=async()=>{for(let i=0;i<50;i++)await Promise.resolve()};
+ const self={location:{origin:"https://fixture.test",href:"https://fixture.test/app/sw.js"},registration:{scope:"https://fixture.test/app/"},addEventListener(t,fn){handler=fn}};
+ const local=mode==="no-cache"?null:new R("old",{tag:"cached"});
+ const env={self,URL:U,Response:R,AbortController:AC,HOSTS_PERMITIDOS:["https://fixture.test"],SHELL:["./index.html"],CACHE_LOCAL:"f123-shell-v933-golden471",abrirCacheLocal:async()=>({match:async()=>local}),fijarShellDeDocumento:async(id,name)=>pins.push([id,name]),caches:{},crypto:{subtle:{digest:async(_,b)=>b}},fetch:async()=>{reads++;if(mode==="hang-headers")return new Promise(()=>{});if(mode==="offline")throw Error("offline");return new R(mode==="different"?"new":"old",{tag:mode==="hang-body"?"network-hang-body":"network"})},setTimeout:(fn,ms)=>{timers.set(++n,{fn,at:now+ms});return n},clearTimeout:id=>timers.delete(id),console:{warn(...x){warnings.push(x.map(String).join(" "))}}};
+ new Function(...Object.keys(env),src.slice(src.indexOf('self.addEventListener("fetch"'),src.indexOf("/* A4")))(...Object.values(env));
+ handler({request:{url:"https://fixture.test/app/index.html",mode:"navigate",method:"GET"},resultingClientId:"new-document",respondWith:p=>Promise.resolve(p).then(r=>{settled=true;value={status:r.status,body:r.body,tag:r.tag}},e=>{settled=true;error=String(e)})});
+ await flush();const beforeDeadline=settled;now=3000;for(const [id,t] of [...timers])if(t.at<=now){timers.delete(id);t.fn()}await flush();
+ return {beforeDeadline,settled,value,error,pins,reads,aborts,timers:timers.size,warnings};
+};
+for(const mode of ["hang-headers","hang-body","same","different","offline","no-cache"])test('SW navigation bounded revalidation: '+mode,async()=>{
+ const result=await runNavigationFixture(production,mode);
+ assert.equal(result.settled,true);assert.equal(result.error,undefined);assert.equal(result.timers,0);
+ assert.equal(result.value.status,mode==='no-cache'?503:200);assert.equal(result.pins.length,mode==='no-cache'?0:1);
+ if(mode.startsWith('hang')){assert.equal(result.beforeDeadline,false);assert.equal(result.value.tag,'cached');assert.equal(result.aborts,1);}
+ if(mode==='same')assert.equal(result.value.tag,'network');
+ if(mode==='different'||mode==='offline')assert.equal(result.value.tag,'cached');
+});
+
+for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]])test('SW bounded revalidation '+name+': stalled network headers and body retain certified HTML',{timeout:60000},async()=>{
+ let stall='none',requests=0,browser;const held=new Set();
+ const html='<!doctype html><html><body data-release="certified"><script>navigator.serviceWorker.register("./sw.js",{updateViaCache:"none"});</script></body></html>';
+ const server=http.createServer((req,res)=>{
+  res.setHeader('Cache-Control','no-store');const p=new URL(req.url,'http://localhost').pathname;
+  if(p==='/app/sw.js'){res.setHeader('Content-Type','text/javascript');return res.end(current);}
+  if(p==='/app/late.js'){res.setHeader('Content-Type','text/javascript');return res.end('/* certified */');}
+  if(p==='/app/index.html'){
+   res.setHeader('Content-Type','text/html');
+   if(stall==='none')return res.end(html);
+   requests++;held.add(res);res.on('close',()=>held.delete(res));
+   if(stall==='body'){res.writeHead(200);res.write('<!doctype html>');}
+   return;
+  }
+  res.statusCode=404;res.end('missing');
+ });
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ try{
+  browser=await engine.launch({headless:true});
+  const page=await browser.newPage({serviceWorkers:'allow'});
+  await page.goto('http://127.0.0.1:'+server.address().port+'/app/index.html');
+  await identity(page,shell(current));
+  await page.waitForFunction(()=>navigator.serviceWorker.controller?.state==='activated');
+  for(const mode of ['headers','body']){
+   stall=mode;const prior=requests,started=Date.now();
+   await page.reload({timeout:12000});
+   assert.ok(Date.now()-started<12000);
+   assert.ok(requests>prior,'actual network revalidation must have been attempted');
+   assert.equal(await page.locator('body').getAttribute('data-release'),'certified');
+   await identity(page,shell(current));
+   assert.deepEqual(await page.evaluate(async()=>{const r=await fetch('./late.js');return [r.status,await r.text()]}),[200,'/* certified */']);
+   for(const res of held)res.destroy();
+  }
+ }finally{for(const res of held)res.destroy();if(browser)await browser.close();server.closeAllConnections();await new Promise(r=>server.close(r));}
+});
