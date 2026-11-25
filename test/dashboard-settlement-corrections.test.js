@@ -21,7 +21,7 @@ function dashboard(state) {
     estadoSimon: () => 'verde', latidos: {}, VISTAS: { reposicion: { filas: () => [] } },
     datos: {},
   };
-  const node = { innerHTML: '', querySelectorAll: () => [] };
+  const node = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
   context.$ = (id) => id === 'cm' ? node : null;
   context.esc = String;
   context.money = (value) => value == null ? 'pending' : '$' + Number(value).toFixed(2);
