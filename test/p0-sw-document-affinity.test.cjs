@@ -11,7 +11,13 @@ const nextShell='f123-shell-v'+(Number(shell(current).split('v').pop())+1);
 const nextGeneration='-golden'+(Number(generation(current).replace('-golden',''))+1);
 const later=current.replace('const CACHE = "'+shell(current)+'";','const CACHE = "'+nextShell+'";').replace('const CACHE_GENERACION = "'+generation(current)+'";','const CACHE_GENERACION = "'+nextGeneration+'";');
 assert.notEqual(later,current,'second takeover must remain distinct on every release');
-const workers=[old,current,later],labels=['old','new','next'];
+
+const debugWorker = '\nself.addEventListener("message",event=>{if(event.data?.tipo!=="fixture-diagnostic")return;event.waitUntil((async()=>{const id=event.source.id,names=await caches.keys(),pins={};for(const n of names.filter(n=>n.includes("client-pins"))){const c=await caches.open(n);for(const k of await c.keys())pins[k.url]=await(await c.match(k)).text();}const matches={};for(const n of names.filter(n=>/^f123-shell-v/.test(n))){const c=await caches.open(n);matches[n]={plain:!!await c.match("./late.js"),query:!!await c.match("./late.js?after=takeover",{ignoreSearch:true})};}event.ports[0].postMessage({id,names,pins,matches,clients:(await self.clients.matchAll({type:"window",includeUncontrolled:true})).map(c=>({id:c.id,url:c.url}))});})().catch(e=>event.ports[0].postMessage({error:String(e)})));});';
+const workers=[old,current+debugWorker,later+debugWorker],labels=['old','new','next'];
+async function diagnostic(page){
+ return page.evaluate(()=>new Promise(resolve=>{const c=new MessageChannel(),t=setTimeout(()=>{c.port1.close();resolve({timeout:true})},3000);c.port1.onmessage=e=>{clearTimeout(t);c.port1.close();resolve(e.data)};navigator.serviceWorker.controller.postMessage({tipo:"fixture-diagnostic"},[c.port2]);}));
+}
+
 async function identity(page,expected) {
  await page.waitForFunction(wanted=>new Promise(resolve=>{
   const c=navigator.serviceWorker.controller;if(!c)return resolve(false);
@@ -44,7 +50,9 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]])test('SW do
   assert.deepEqual(await read(a),[200,'/* old */']);
   stage=1;await update(a);await identity(a,shell(current));await identity(b,shell(current));
   assert.equal(await a.locator('body').getAttribute('data-release'),'old');
-  assert.deepEqual(await read(a,'late.js?after=takeover'),[200,'/* old */']);
+  const oldLate=await read(a,'late.js?after=takeover');
+  if(oldLate[0]!==200)console.log('SW affinity failure diagnostics',JSON.stringify(await diagnostic(a)),JSON.stringify(await diagnostic(b)));
+  assert.deepEqual(oldLate,[200,'/* old */']);
   assert.deepEqual(await read(b),[200,'/* old */']);
   assert.equal((await read(a,'missing.js'))[0],503);
   assert.ok(await a.evaluate(()=>caches.keys().then(a=>a.includes('f123-shell-v100-golden1-next'))));
