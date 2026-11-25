@@ -5865,6 +5865,14 @@
     try { if (f && f.pinsRol && f.ownerPinTs && window.OCSecure && window.OCSecure.adoptarPinOwnerDeFoto) Promise.resolve(window.OCSecure.adoptarPinOwnerDeFoto(f.pinsRol.owner, f.ownerPinTs)).catch(() => {}); } catch (_) {}
   }
   window.OCSync = {
+    // Recovery must retry from Yjs, never enqueue work behind a business commit.
+    aplicarCatalogoParcialSeguro(remoto, rolRemoto, nombreCanonicoYjs) {
+      const auth = window.OCAuth;
+      if (_ventaConfirmando || _retencionConfirmando || _payoutConfirmando ||
+          !auth || typeof auth.rolActual !== "function" || !auth.rolActual() ||
+          (typeof auth.esDemo === "function" && auth.esDemo())) return { ok: false, ocupado: true };
+      return this.aplicarCatalogo(remoto, rolRemoto, nombreCanonicoYjs);
+    },
     conflictosEquipo: () => conflictosEquipo.map((x) => ({ id: x.id, nombre: x.nombre, fecha: x.fecha })),
     /* FOTO DE PRODUCTO POR HASH (JFC 2026-09-16). Antes solo las PERCHAS
        sincronizaban foto (por hash). Los productos guardaban la foto INLINE

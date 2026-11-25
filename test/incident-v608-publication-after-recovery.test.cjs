@@ -12,6 +12,7 @@ async function peer(options={}){
   w.setTimeout=(fn,ms)=>{const timer={fn,ms,on:true};timers.push(timer);return timer;};
   w.clearTimeout=timer=>{if(timer)timer.on=false;};
   w.setInterval=(fn,ms)=>{const timer={fn,ms,on:true,interval:true};timers.push(timer);return timer;};
+  w.clearInterval=timer=>{if(timer)timer.on=false;};
   const flush=async()=>{
     for(let i=0;i<5;i++){
       for(const timer of timers.filter(t=>t.on&&!t.interval&&t.ms===0)){timer.on=false;timer.fn();}
@@ -25,10 +26,26 @@ async function peer(options={}){
   w.IndexeddbPersistence=class{once(){}};
   w.localStorage.setItem('f123_owned',JSON.stringify({licenseCode:'SYNTHETIC-V608-PUBLICATION'}));
   w.OCAuth={rolActual:()=> 'dueno'};
+  if(options.noShopIdentity)w.OCTienda=undefined;
+  if(options.blockNotebookMarker){
+    const read=w.localStorage.getItem.bind(w.localStorage);
+    w.localStorage.getItem=key=>{if(key==='f123_tienda_activa')throw new Error('synthetic storage blocked');return read(key);};
+  }
   const syncFile=options.legacy === 'v606' ? process.env.F123_V606_SYNC_FILE :
     options.legacy ? process.env.F123_V607_SYNC_FILE : path.join(__dirname,'../docs/sync-yjs.js');
   assert.ok(syncFile&&fs.existsSync(syncFile),'v607 historical sync script must be fetched at exact pinned SHA');
-  vm.runInContext(fs.readFileSync(syncFile,'utf8'),w);
+  let syncSource=fs.readFileSync(syncFile,'utf8');
+  if(options.switchLicenseBeforeConnect){
+    const marker='    conectarStore(Y, _namespaceInicio);   // FASE 2:';
+    assert.ok(syncSource.includes(marker));
+    syncSource=syncSource.replace(marker,'    localStorage.setItem("f123_owned",JSON.stringify({licenseCode:"SYNTHETIC-OTHER-NOTEBOOK"}));'+marker);
+  }
+  if(options.switchNamespaceBeforeConnect){
+    const marker='    conectarStore(Y, _namespaceInicio);   // FASE 2:';
+    assert.ok(syncSource.includes(marker));
+    syncSource=syncSource.replace(marker,'    localStorage.setItem("f123_tienda_activa","::SYNTHETIC-OTHER-NOTEBOOK");'+marker);
+  }
+  vm.runInContext(syncSource,w);
   for(let i=0;i<100&&w.OCYjs.estado!=='activo';i++)await new Promise(resolve=>setTimeout(resolve,10));
   assert.equal(w.OCYjs.estado,'activo');
   return {w,timers,flush};
@@ -111,10 +128,10 @@ async function exchange(a,b,rounds=1){
     await a.flush();await b.flush();
   }
 }
-async function exchangeBinaryDelta(a,b){
+async function exchangeBinaryDelta(a,b,coldRecovery=false){
   // C186: steady-state incremental delta tests run after initial cold-join HEAD recovery.
-  if(a.w.OCYjs.canal)a.w.OCYjs.canal.recuperando=false;
-  if(b.w.OCYjs.canal)b.w.OCYjs.canal.recuperando=false;
+  if(!coldRecovery&&a.w.OCYjs.canal)a.w.OCYjs.canal.recuperando=false;
+  if(!coldRecovery&&b.w.OCYjs.canal)b.w.OCYjs.canal.recuperando=false;
   const A=a.w.Y,B=b.w.Y;
   const bVector=B.encodeStateVector(b.w.OCYjs.doc);
   const aVector=A.encodeStateVector(a.w.OCYjs.doc);
@@ -133,6 +150,201 @@ async function exchangeBinaryDelta(a,b){
   return {bytesA:bytesFromA.byteLength,bytesB:bytesFromB.byteLength,encodeMs:t1-t0,applyYjsMs:t2-t1,receiverStoreMs:t3-t2,totalMs:t3-t0};
 }
 const fixtureProduct=async p=>(await p.w.request('/api/respaldo/exportar')).productos.find(x=>x.id==='p0-two-actors');
+
+test('cold recovery applies later downloaded stock after an earlier accepted merge',async()=>{
+  const a=await peer(),b=await peer();
+  await physicalFixture(a,b,5,5);
+  await exchange(a,b,2);
+  assert.equal(b.w.OCYjs.canal.recuperando,true);
+  const timer=b.timers.find(t=>t.interval&&t.ms===10000);
+  assert.ok(timer&&timer.on);
+  await a.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:9,motivo:'synthetic recovery batch'});
+  await a.flush();await exchangeBinaryDelta(a,b,true);
+  assert.equal((await fixtureProduct(b)).stockActual,5,'unverified recovery is held until the safety retry');
+  b.w.OCAuth.rolActual=()=>'';
+  timer.fn();await b.flush();
+  assert.equal((await fixtureProduct(b)).stockActual,5,'no retry before a verified session');
+  b.w.OCAuth.rolActual=()=> 'dueno';
+  b.w.document.hidden=true;
+  timer.fn();await b.flush();
+  assert.equal((await fixtureProduct(b)).stockActual,5,'no retry while hidden');
+  b.w.document.hidden=false;
+  b.w.OCAuth.esDemo=()=>true;
+  timer.fn();await b.flush();
+  assert.equal((await fixtureProduct(b)).stockActual,5,'demo cannot apply a business recovery');
+  b.w.OCAuth.esDemo=()=>false;
+  const originalApply=b.w.OCSync.aplicarCatalogo;
+  let calls=0;
+  b.w.OCSync.aplicarCatalogo=function(...args){
+    calls++;
+    if(calls===1) return {ok:false};
+    return originalApply.apply(this,args);
+  };
+  timer.fn();await b.flush();
+  assert.equal((await fixtureProduct(b)).stockActual,5,'failed application is not marked complete');
+  b.w.OCAuth.rolActual=()=>'';
+  const pendingRetry=b.timers.find(t=>t.on&&!t.interval&&t.ms===2000);
+  assert.equal(pendingRetry,undefined,'partial recovery does not escape the session-guarded retry');
+  timer.fn();await b.flush();
+  assert.equal((await fixtureProduct(b)).stockActual,5,'retry must not apply after logout');
+  b.w.OCAuth.rolActual=()=> 'dueno';
+  for(let i=0;i<3;i++){timer.fn();await b.flush();}
+  assert.equal((await fixtureProduct(b)).stockActual,14,'first downloaded batch becomes visible');
+  const afterFirst=calls;
+  for(let i=0;i<3;i++){timer.fn();await b.flush();}
+  assert.equal(calls,afterFirst,'unchanged batch is not merged again');
+  await a.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:2,motivo:'second synthetic batch'});
+  await a.flush();await exchangeBinaryDelta(a,b,true);
+  assert.ok(timer.on,'safety retry remains available until recovery ends');
+  timer.fn();await b.flush();
+  assert.equal((await fixtureProduct(b)).stockActual,16,'later downloaded batch also becomes visible');
+  b.w.OCYjs.canal.recuperando=false;
+  timer.fn();
+  assert.equal(timer.on,false,'watcher stops when recovery completes');
+});
+
+test('cold recovery retry does not replace the local business name with unverified history',async()=>{
+  const a=await peer(),b=await peer();
+  await physicalFixture(a,b,5,5);await exchange(a,b,2);
+  assert.equal(b.w.OCYjs.canal.recuperando,true);
+  await b.w.request('/api/instancia/nombre','POST',{nombre:'Current synthetic name'});
+  await b.flush();
+  const rev=b.w.OCSync.catalogoPropio().nombreNegocioRev;
+  a.w.OCYjs.doc.transact(()=>{
+    a.w.OCYjs.meta.set('nombreNegocio','Old synthetic name');
+    a.w.OCYjs.meta.set('nombreRev',rev);
+    a.w.OCYjs.meta.set('nombreEsDueno',true);
+  },'seed');
+  await exchangeBinaryDelta(a,b,true);
+  b.w.OCYjs.canal.accesoListo=()=>true; // PIN metadata can be complete while other history is not.
+  const timer=b.timers.find(t=>t.interval&&t.ms===10000);
+  const original=b.w.OCSync.aplicarCatalogo;
+  let first=true;
+  b.w.OCSync.aplicarCatalogo=function(...args){
+    if(first){first=false;return {ok:false};}
+    return original.apply(this,args);
+  };
+  timer.fn();await b.flush();
+  timer.fn();await b.flush();
+  assert.equal((await b.w.request('/api/instancia')).nombreNegocio,'Current synthetic name');
+  b.w.OCYjs.canal.recuperando=false;
+  b.w.OCYjs._store.aplicar();await b.flush();
+  assert.equal((await b.w.request('/api/instancia')).nombreNegocio,'Old synthetic name','normal verified application still handles identity');
+});
+
+test('cold recovery does not abandon retained history after repeated local failures',async()=>{
+  const a=await peer(),b=await peer();
+  await physicalFixture(a,b,5,5);await exchange(a,b,2);
+  await a.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:9,motivo:'synthetic retained history'});
+  await a.flush();await exchangeBinaryDelta(a,b,true);
+  const timer=b.timers.find(t=>t.interval&&t.ms===10000);
+  const original=b.w.OCSync.aplicarCatalogo;
+  let blocked=true,attempts=0;
+  b.w.OCSync.aplicarCatalogo=function(...args){attempts++;return blocked?{ok:false}:original.apply(this,args);};
+  for(let i=0;i<2000&&attempts<30;i++){if(timer.on)timer.fn();}
+  assert.equal(attempts,30,'thirty actual failed attempts were exercised');
+  blocked=false;
+  for(let i=0;i<62;i++){if(timer.on)timer.fn();}
+  await b.flush();
+  assert.equal((await fixtureProduct(b)).stockActual,14,'retained history must recover after storage resumes');
+});
+
+test('cold recovery stops before applying to a different active notebook',async()=>{
+  const a=await peer(),b=await peer();
+  await physicalFixture(a,b,5,5);await exchange(a,b,2);
+  await a.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:9,motivo:'synthetic notebook isolation'});
+  await a.flush();await exchangeBinaryDelta(a,b,true);
+  b.w.localStorage.setItem('f123_tienda_activa','::different-synthetic-notebook');
+  const timer=b.timers.find(t=>t.interval&&t.ms===10000);
+  timer.fn();await b.flush();
+  assert.equal(timer.on,false,'old notebook retry is stopped');
+  assert.equal((await fixtureProduct(b)).stockActual,5,'old notebook data is not merged after switch');
+});
+
+test('cold recovery fails closed if notebook identity becomes unavailable',async()=>{
+  const a=await peer(),b=await peer();
+  await physicalFixture(a,b,5,5);await exchange(a,b,2);
+  await a.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:9,motivo:'synthetic identity unavailable'});
+  await a.flush();await exchangeBinaryDelta(a,b,true);
+  b.w.OCTienda=undefined;
+  const timer=b.timers.find(t=>t.interval&&t.ms===10000);
+  timer.fn();await b.flush();
+  assert.equal((await fixtureProduct(b)).stockActual,5,'cannot apply when identity cannot be verified');
+});
+
+test('cold recovery refuses a document whose licensed notebook no longer matches',async()=>{
+  const a=await peer(),b=await peer();
+  await physicalFixture(a,b,5,5);await exchange(a,b,2);
+  await a.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:9,motivo:'synthetic document identity mismatch'});
+  await a.flush();await exchangeBinaryDelta(a,b,true);
+  b.w.OCYjs.codigoCuaderno='SYNTHETIC-OTHER-NOTEBOOK';
+  const timer=b.timers.find(t=>t.interval&&t.ms===10000);
+  timer.fn();await b.flush();
+  assert.equal((await fixtureProduct(b)).stockActual,5,'a different document must not be applied');
+});
+
+test('cold recovery refuses a license changed while sync was starting',async()=>{
+  const a=await peer(),b=await peer({switchLicenseBeforeConnect:true});
+  assert.notEqual(b.w.OCYjs.codigoCuaderno,b.w.OCTienda.licenciaActual());
+  await physicalFixture(a,b,5,5);await exchange(a,b,2);
+  await a.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:9,motivo:'synthetic startup race'});
+  await a.flush();await exchangeBinaryDelta(a,b,true);
+  const timer=b.timers.find(t=>t.interval&&t.ms===10000&&t.on);
+  if(timer)timer.fn();await b.flush();
+  assert.equal((await fixtureProduct(b)).stockActual,5,'the old document must not merge into the new license');
+});
+
+test('cold recovery refuses a namespace changed while sync was starting',async()=>{
+  const a=await peer(),b=await peer({switchNamespaceBeforeConnect:true});
+  await physicalFixture(a,b,5,5);await exchange(a,b,2);
+  await a.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:9,motivo:'synthetic namespace race'});
+  await a.flush();await exchangeBinaryDelta(a,b,true);
+  const timer=b.timers.find(t=>t.interval&&t.ms===10000&&t.on);
+  if(timer)timer.fn();await b.flush();
+  assert.equal((await fixtureProduct(b)).stockActual,5,'the old document must not merge after namespace changes');
+});
+
+test('a later recovery channel re-arms the retained-history safety retry',async()=>{
+  const a=await peer(),b=await peer();
+  await physicalFixture(a,b,5,5);await exchange(a,b,2);
+  const first=b.timers.find(t=>t.interval&&t.ms===10000);
+  b.w.OCYjs.canal.recuperando=false;first.fn();
+  assert.equal(first.on,false,'initial completed recovery is stopped');
+  b.w.OCYjs.canal={recuperando:true,accesoListo:()=>false};
+  await a.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:9,motivo:'synthetic second recovery'});
+  await a.flush();await exchangeBinaryDelta(a,b,true);
+  const next=b.timers.find(t=>t.interval&&t.ms===10000&&t.on);
+  assert.ok(next,'later recovery has its own active retry');
+  next.fn();await b.flush();
+  assert.equal((await fixtureProduct(b)).stockActual,14);
+});
+
+test('a successful partial merge does not cancel an independent normal retry',async()=>{
+  const a=await peer(),b=await peer();
+  await physicalFixture(a,b,5,5);await exchange(a,b,2);
+  const original=b.w.OCSync.aplicarCatalogo;
+  let first=true;
+  b.w.OCSync.aplicarCatalogo=function(...args){if(first){first=false;return {ok:false};}return original.apply(this,args);};
+  b.w.OCYjs._store.aplicar();
+  const retry=b.timers.find(t=>t.on&&!t.interval&&t.ms===2000);
+  assert.ok(retry,'normal failed merge scheduled a retry');
+  const timer=b.timers.find(t=>t.interval&&t.ms===10000);
+  timer.fn();await b.flush();
+  assert.equal(retry.on,true,'partial merge must not cancel the normal retry');
+});
+
+test('blocked notebook storage disables the safety retry without aborting sync initialization',async()=>{
+  const b=await peer({blockNotebookMarker:true});
+  assert.equal(b.w.OCYjs.estado,'activo');
+  const timer=b.timers.find(t=>t.interval&&t.ms===10000);
+  assert.equal(timer,undefined,'partial recovery fails closed when notebook identity cannot be read');
+});
+
+test('missing shop identity at startup disables partial recovery without aborting sync',async()=>{
+  const b=await peer({noShopIdentity:true});
+  assert.equal(b.w.OCYjs.estado,'activo');
+  assert.equal(b.timers.find(t=>t.interval&&t.ms===10000),undefined);
+});
 
 test('P0 independent PN witnesses converge two offline additions and repeated replay exactly once',async()=>{
   const a=await peer(),b=await peer();

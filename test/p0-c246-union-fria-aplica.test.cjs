@@ -3,11 +3,14 @@
 // the C186 HEAD release never arrives (relay paused). Safety net retries the same add-only apply() inside a PIN session.
 const {test}=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');
 const src=fs.readFileSync('docs/sync-yjs.js','utf8');
-test('C246: cold-join safety net retries the existing apply() every 10 s, at most 30 times, only with a PIN session',()=>{
- const i=src.indexOf('var _redUnionFria = 0');assert.ok(i>0,'safety net present');
+test('C246: cold-join safety net bounds retries and preserves session and notebook guards',()=>{
+ const i=src.indexOf('var _redDoc = API.doc');assert.ok(i>0,'safety net present');
  const blk=src.slice(i,src.indexOf('}, 10000);',i)+10);
- assert.match(blk,/_primerMergeAceptado \|\| \+\+_redUnionFria > 30/);
+ assert.match(blk,/_redDoc\.isDestroyed/);
+ assert.match(blk,/f123_tienda_activa/);
+ assert.match(blk,/Math\.min\([^\n]*60\)/);
+ assert.match(blk,/_redRevision !== API\._catalogoRevision/);
  assert.match(blk,/OCAuth\.rolActual/);
- assert.match(blk,/if \(hay\) aplicar\(\);/);
- assert.doesNotMatch(blk,/\.delete\(|\.clear\(|localStorage|indexedDB/,'never deletes or rewrites data');
+ assert.match(blk,/aplicar\(true\);/);
+ assert.doesNotMatch(blk,/\.delete\(|\.clear\(|\.setItem\(|\.removeItem\(|indexedDB/,'never deletes or rewrites data');
 });

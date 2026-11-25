@@ -2810,6 +2810,8 @@
     } catch (_) { log("identidad del cuaderno no disponible — sin sync"); return; }
     if (!_licProp) { log("sin licencia — sin sync (una licencia = una sala; f123_sync_room ya no decide)"); return; }
     var codigo = normalizarCodigo(_licProp);
+    var _namespaceInicio = null;
+    try { _namespaceInicio = localStorage.getItem("f123_tienda_activa") || ""; } catch (_) {}
     var rolloutPromise = _politicaRollout(codigo);
     // A first-time license may be entered after mock-backend boot, on the PIN screen.
     if (typeof window.__f123PrepareJfcReset === "function") window.__f123PrepareJfcReset();
@@ -3660,7 +3662,7 @@
     // tab repeats all three connection attempts when relay is offline.
     // A hidden/inactive tab must still be paused immediately (no data sends).
     if (document.hidden) sincronizarVisibilidad();
-    conectarStore(Y);   // FASE 2: leer/escribir el store REAL de la app (add-only)
+    conectarStore(Y, _namespaceInicio);   // FASE 2: leer/escribir el store REAL de la app (add-only)
     conectarHechos();    // cartera y caja chica: hechos inmutables por ID
     // Al cargar de IndexedDB los blobs ya guardados, volcarlos al store de fotos.
     if (API.fotosIdb && API.fotosIdb.once) API.fotosIdb.once("synced", pedirVolcarFotos);
@@ -4568,7 +4570,7 @@
       });
     });
   }
-  function conectarStore(Y) {
+  function conectarStore(Y, namespaceInicio) {
     if (!window.OCSync || typeof window.OCSync.catalogoPropio !== "function" ||
         typeof window.OCSync.aplicarCatalogo !== "function") {
       log("store no disponible (OCSync) — Plan C queda solo como capa CRDT");
@@ -5059,6 +5061,7 @@
       });
     };
     function aplicar() {
+      var parcial = arguments[0] === true;
       if (_aplicando) return;
       aplicacionActual++;
       ultimaAplicacionAceptada = false;
@@ -5067,6 +5070,7 @@
       // Genérico sobre COLECCIONES: agregar una colección nueva (promotoras,
       // sucursales…) es una sola línea allá arriba, aquí ya viaja sola.
       var remoto = { _nombreDesdeYjs: true, nombreNegocio: API.meta.get("nombreNegocio") || "", nombreNegocioTs: Number(API.meta.get("nombreTs")) || 0, nombreNegocioRev: Number(API.meta.get("nombreRev")) || 0, pinsRol: API.canal && API.canal.recuperando && !API.canal.peerSnapshot && !(API.canal.accesoListo && API.canal.accesoListo()) ? null : API.meta.get("pinsRol") || null, deviceNombre: "sync" };
+      if (parcial && API.canal && API.canal.recuperando) { remoto.nombreNegocio = ""; remoto.pinsRol = null; }
       var confirmado = String(API.meta.get("ownerPinConfirmado") || "");
       if (remoto.pinsRol && /^\d{3}$/.test(confirmado) && confirmado !== "456") {
         remoto.pinsRol = Object.assign({}, remoto.pinsRol, { owner: confirmado });
@@ -5110,7 +5114,8 @@
       _aplicando = true;
       var _fallo = false;
       try {
-        var r = soloProductos
+        var r = parcial ? (typeof window.OCSync.aplicarCatalogoParcialSeguro === "function" ?
+          window.OCSync.aplicarCatalogoParcialSeguro(remoto, rolRemoto, true) : { ok: false }) : soloProductos
           ? window.OCSync.aplicarCatalogo(remoto, rolRemoto, true, true)
           : window.OCSync.aplicarCatalogo(remoto, rolRemoto, true); // Only incremental product-only merges defer A/B
         ultimaAplicacionAceptada = !!(r && r.ok && r.actividadCompleta !== false);
@@ -5140,8 +5145,8 @@
       catch (e) { log("aplicar:", e && e.message); _fallo = true; }
       _aplicando = false;
       // (JFC 2026-10-27) excepcion o no aceptada -> proxima aplicacion completa + 1 reintento.
-      if (_fallo || !ultimaAplicacionAceptada) falloAplicacion();
-      else _retryAplicar.cancelar();
+      if (_fallo || !ultimaAplicacionAceptada) { if (parcial) _primerMergeAceptado = false; else falloAplicacion(); }
+      else if (!parcial) _retryAplicar.cancelar();
     }
     function falloAplicacion() {
       _primerMergeAceptado = false;
@@ -5182,6 +5187,7 @@
         return;
       }
       API._catalogoRevision++;
+      if (API.canal && API.canal.recuperando) iniciarRedUnionFria();
       // C186: thousands of encrypted cold-join frames can arrive before HEAD.
       // The existing verified-access/HEAD barrier applies their final Y.Doc once.
       // Live updates after that proof remain immediate.
@@ -5200,20 +5206,36 @@
     /* C246 (JFC 23 nov 2026: «arregla por favor ese punto exacto y prueba!»). Medido en vivo: un aparato nuevo con licencia+PIN
        ya tenia en el Y.Doc 5 clientes, 8 ventas y 495 hechos financieros, pero la app mostraba 0: la barrera C186 retiene los
        updates de la union en frio hasta la liberacion de HEAD, y si el relay se pausa esa liberacion nunca llega. Red de
-       seguridad ADITIVA: con sesion de PIN abierta y el primer merge aun no aceptado, reintenta el MISMO aplicar() (merge add-only,
-       idempotente) cada 10 s, como mucho 30 veces. No borra ni reescribe nada; se detiene sola al aceptar el merge.
+       seguridad ADITIVA: con sesion de PIN abierta, aplica lotes nuevos como maximo cada 10 s, con backoff local ante fallos.
+       Conserva el Y.Doc para reintento, no aplica identidad parcial y se detiene al completar la recuperacion.
        PARA REVERTIR: borrar este bloque. */
-    var _redUnionFria = 0, _tRedUnionFria = typeof setInterval !== "function" ? null : setInterval(function () {
+    var _redDoc = API.doc, _redIdentidad = null, _redRevision = -1, _redEspera = 0, _redSaltar = 0;
+    try { if (namespaceInicio !== null && window.OCTienda && typeof OCTienda.licenciaActual === "function" && normalizarCodigo(OCTienda.licenciaActual()) === API.codigoCuaderno && (localStorage.getItem("f123_tienda_activa") || "") === namespaceInicio) _redIdentidad = [OCTienda.licenciaActual(), namespaceInicio]; } catch (_) {}
+    var _tRedUnionFria = null;
+    function iniciarRedUnionFria() {
+      if (_tRedUnionFria || typeof setInterval !== "function" || !_redIdentidad || _redDoc.isDestroyed) return;
+      _redRevision = -1; _redEspera = 0; _redSaltar = 0;
+      _tRedUnionFria = setInterval(function () {
       try {
-        if (_primerMergeAceptado || ++_redUnionFria > 30) { clearInterval(_tRedUnionFria); return; }
+        if (!_redIdentidad || API.doc !== _redDoc || _redDoc.isDestroyed || normalizarCodigo(_redIdentidad[0]) !== API.codigoCuaderno || (API.canal && API.canal.recuperando === false) ||
+            (!window.OCTienda || typeof OCTienda.licenciaActual !== "function" || OCTienda.licenciaActual() !== _redIdentidad[0]) ||
+            (localStorage.getItem("f123_tienda_activa") || "") !== _redIdentidad[1]) { clearInterval(_tRedUnionFria); _tRedUnionFria = null; return; }
         if (_aplicando || _tAplica || document.hidden) return;
         // Only inside a PIN-verified session (owner/admin/staff); the history is decrypted with this license.
         var _rolRed = ""; try { _rolRed = (window.OCAuth && OCAuth.rolActual && OCAuth.rolActual()) || ""; } catch (_) {}
-        if (!_rolRed) return;
+        if (!_rolRed || (window.OCAuth && OCAuth.esDemo && OCAuth.esDemo())) return;
         var hay = COLECCIONES.some(function (c) { var m = API.mapas[c]; return m && m.size > 0; });
-        if (hay) aplicar();
+        if (_redSaltar > 0) { _redSaltar--; return; }
+        if (hay && _redRevision !== API._catalogoRevision) {
+          var revisionRed = API._catalogoRevision;
+          aplicar(true);
+          if (ultimaAplicacionAceptada) { _redRevision = revisionRed; _redEspera = 0; }
+          else { _redEspera = Math.min(_redEspera ? _redEspera * 2 : 1, 60); _redSaltar = _redEspera; }
+        }
       } catch (_) {}
-    }, 10000);
+      }, 10000);
+    }
+    iniciarRedUnionFria();
     // Arranque: cuando IndexedDB termina de cargar, primero APLICAMOS lo que ya
     // había guardado localmente (por si este aparato arrancó offline) y luego
     // SEMBRAMOS lo local que aún no esté en Yjs. Ambos son idempotentes.
