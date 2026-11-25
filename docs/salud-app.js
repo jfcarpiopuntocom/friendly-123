@@ -306,7 +306,8 @@
             var sirviendo = String(e.data.shell);
             var genSirviendo = e.data.cacheGeneration;
             var genEsperada = v.cacheGeneration ? ("-" + String(v.cacheGeneration).replace(/^-/, "")) : "";
-            if (sirviendo !== v.shell || (genEsperada && genSirviendo !== genEsperada)) {
+            var genMal = !!(genEsperada && genSirviendo !== genEsperada);
+            if (sirviendo !== v.shell || genMal) {
               window.__ocMezcla = true;
               ofrecerRecarga(v.shell + (genEsperada ? "@" + genEsperada : ""), sirviendo + (genSirviendo ? "@" + genSirviendo : "@legacy"));
             }
