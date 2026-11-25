@@ -27,6 +27,8 @@ const MANDATORY=[
   'test/p0-sw-document-affinity.test.cjs', // no mixed assets across controller takeovers
   'test/v448-golden-generation.test.js', // cache generation and channel isolation
   'test/p0-commission-month-guard.test.cjs', // past own/counter month and per-product summary
+  'test/p0-commission-retro-zero-split.test.cjs', // recorded historical adjustments, no invented facts
+  'test/dashboard-settlement-corrections.test.js', // monthly payable, no duplicate adjustments
   'test/p0-belen-commissions-all-dates.test.cjs', // Belén 1AAA: both UIs, full history, optional dates, exact split
   'test/p0-commissions-historical-own-month-summary.test.cjs', // no split means month still visible
   'test/commissions-period.test.js', // historical split still payable only in correct period
