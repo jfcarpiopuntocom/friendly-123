@@ -7,7 +7,10 @@ const narrow=src=>src.replace(/const SHELL = \[[\s\S]*?\n\];/,'const SHELL = [".
 const current=narrow(production),old=narrow(legacy);
 const shell=src=>/^const CACHE = "([^"]+)";/m.exec(src)[1];
 const generation=src=>/^const CACHE_GENERACION = "([^"]+)";/m.exec(src)[1];
-const later=current.replace('const CACHE = "'+shell(current)+'";','const CACHE = "f123-shell-v932";').replace('const CACHE_GENERACION = "'+generation(current)+'";','const CACHE_GENERACION = "-golden470";');
+const nextShell='f123-shell-v'+(Number(shell(current).split('v').pop())+1);
+const nextGeneration='-golden'+(Number(generation(current).replace('-golden',''))+1);
+const later=current.replace('const CACHE = "'+shell(current)+'";','const CACHE = "'+nextShell+'";').replace('const CACHE_GENERACION = "'+generation(current)+'";','const CACHE_GENERACION = "'+nextGeneration+'";');
+assert.notEqual(later,current,'second takeover must remain distinct on every release');
 const workers=[old,current,later],labels=['old','new','next'];
 async function identity(page,expected) {
  await page.waitForFunction(wanted=>new Promise(resolve=>{
