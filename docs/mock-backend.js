@@ -6666,6 +6666,8 @@
         const i = Math.min(i1, i2); return i === Infinity ? undefined : ajustesComision[i];
       };
       return ventasActivas().filter((v) => !uid || uid === "todas" || v.ubicacionId === uid).map((v) => {
+        // Read-only: the recorded retro adjustment replaces an empty zero split, never a real split.
+        if (_retroPorVenta.has(String(v.id)) && v.noCommission !== true && v.split && v.split.montoComisionSocio === 0 && !(Array.isArray(v.split.reparto) && v.split.reparto.some(Boolean))) v = Object.assign({}, v, {split:null});
         const p = _prodPorId.get(v.productoId);
         const c = _cliPorId.get(v.clienteId);
         const u = _ubiPorId.get(v.ubicacionId);

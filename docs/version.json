@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.32",
+  "version": "v0.9.33",
   "fecha": "2026-11-25",
-  "changelog": "v0.9.32: afinidad de recursos por documento antes de activar el Service Worker.",
+  "changelog": "v0.9.33: afinidad de recursos por documento antes de activar el Service Worker.",
   "requerida": false,
-  "shell": "f123-shell-v932",
+  "shell": "f123-shell-v933",
   "apagar": [],
-  "releaseName": "v0.9.32",
-  "cacheGeneration": "golden470"
+  "releaseName": "v0.9.33",
+  "cacheGeneration": "golden471"
 }
