@@ -105,7 +105,7 @@
     "./canarios.js": "sha256-1956d833f2201ae7ab60ef24d2ef2f8e88b6b54896fd4aaeaca894b25682ce6c",
     "./hechos.min.js": "sha256-e821510610bf3d7d10f30b35e841f8e45071d0db90deb2afdb33320a2ab45bf6",
     "./reconciliacion.min.js": "sha256-36365f7d8f1c164359bc5942bdf26c4b39d1f300be3037cc03d1346af3de4a5b",
-    "./cartera.min.js": "sha256-3dc1220325e7a23e43879a176d8c8da97c14c8f129d298e599ad0f5446f64638",
+    "./cartera.min.js": "sha256-569f35eba23591cebbcbadd724ebd2185dd00b1d81fc4509c2ad8c9794f066d1",
     "./plan-pagos.min.js": "sha256-60b2f4164fbe2e405bf3b83576b8ce8f3d0b7ed3dc1a559cb7bc3a298817fa4c",
     "./plan-pagos-ui.min.js": "sha256-da18d6faacf84b80bb85257ceb9ad4998169b717bcce512e1d27023577abb4bf",
     "./pago-intento-idb.mjs": "sha256-bb7c46d65ca8f2bd9d372a510e9138e95e8ccdbec1f7d72488f2e1cd931532ba",
