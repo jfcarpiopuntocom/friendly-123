@@ -466,6 +466,7 @@
         req.onerror = function () { fallo = req.error; };
         tx.oncomplete = function () { resolve(hecho); };
         tx.onerror = function () { reject(fallo || tx.error); };
+        tx.onabort = function () { reject(fallo || tx.error || new DOMException("hecho abortado", "AbortError")); };
       });
     });
   }
