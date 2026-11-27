@@ -39,6 +39,7 @@
     hs.forEach(function (h) {
       var d = _d(h);
       var k = [h.tipo, d[campoDueno], d.monto, d.motivo || "", Math.floor((Number(h.ts) || 0) / 2000)].join("|");
+      if (h.tipo === "cartera_abono" && d.opId) k = JSON.stringify(["identified-payment", String(d.opId), String(h.id)]);
       (grupos[k] = grupos[k] || []).push(h);
     });
     var out = [];
@@ -363,13 +364,16 @@
      misma foto del saldo. La concurrencia REMOTA converge por _aplicaciones. */
   function _validarPartesAplicacion(todos, clienteId, abonoId, partes, ventas) {
     var r = calcularSaldo(todos, clienteId, _ventasActuales(ventas));
+    if (r.conflictosIdentidadExperimental) { var e = new Error('cartera: identidad de movimiento en conflicto'); e.status = 409; throw e; }
+    var canon = r.aliasesAbonoExperimental.get(String(abonoId)) || String(abonoId);
     var abono = r.movimientos.find(function (m) {
-      return m.tipo === "abono" && String(m.id) === String(abonoId);
+      return m.tipo === "abono" && String(m.id) === canon;
     });
     if (!abono) throw new Error("cartera: el abono no pertenece a este cliente");
     var libre = _centavos(abono.sinAsignar), pedido = 0, vistos = Object.create(null), normal = [];
     partes.forEach(function (p) {
-      var ck = String(p && p.cargoKey || ""), n = Number(p && p.monto), cent = Math.round(n * 100);
+      var originalKey = String(p && p.cargoKey || ""), ck = r.aliasesCargoExperimental.get(originalKey) || originalKey;
+      var n = Number(p && p.monto), cent = Math.round(n * 100);
       if (!ck || vistos[ck]) throw new Error("cartera: consumo repetido en la misma asignación");
       vistos[ck] = true;
       var cargo = r.movimientos.find(function (m) {
@@ -381,7 +385,7 @@
         throw new Error("cartera: el monto supera lo que falta pagar de ese consumo");
       }
       pedido += cent;
-      normal.push({ cargoKey: ck, monto: cent / 100 });
+      normal.push({ cargoKey: originalKey, monto: cent / 100 });
     });
     if (!Number.isSafeInteger(pedido) || pedido > libre) {
       throw new Error("cartera: el monto supera lo que queda sin asignar de ese pago");
@@ -408,7 +412,13 @@
         if (!clave) return null;
         var anterior = lista.find(function (h) { return h.tipo === APLICACION && String(_d(h).opId || "") === clave; });
         if (!anterior) return null;
-        if (!_mismaAplicacion(anterior, clienteId, abonoId, partes)) {
+        var proy = calcularSaldo(lista, clienteId, _ventasActuales(ventas));
+        if (proy.conflictosIdentidadExperimental) { var e = new Error('cartera: identidad de movimiento en conflicto'); e.status = 409; throw e; }
+        var canon = function(id) { return proy.aliasesAbonoExperimental.get(String(id)) || String(id); };
+        var dAnterior = _d(anterior);
+        var remapParts = function(ps) { return ps.map(function(p){ var k=String(p.cargoKey); return Object.assign({},p,{cargoKey:proy.aliasesCargoExperimental.get(k)||k}); }); };
+        var previoNormal = Object.assign({}, anterior, { datos: Object.assign({}, dAnterior, { abonoId: canon(dAnterior.abonoId), partes:remapParts(_partesAplicacion(dAnterior)) }) });
+        if (!_mismaAplicacion(previoNormal, clienteId, canon(abonoId), remapParts(partes))) {
           var e = new Error("cartera: la referencia pertenece a otra asignación");
           e.status = 409; throw e;
         }
@@ -424,6 +434,7 @@
       };
       if (clave) payload.opId = clave;
       return global.AMG.Hechos.registrar(APLICACION, payload, {
+        propagarConflicto: true,
         repetido: function (lista) {
           var viejo = buscarRepetido(lista);
           if (viejo) return viejo;
@@ -445,17 +456,108 @@
 
   /* Funcion PURA (sin storage): todos = hechos; ventas = ventas actuales o null (=> montos guardados). */
   function calcularSaldo(todos, clienteId, ventas) {
+    // EXPERIMENT: exact payment identities only. Never modify original facts.
+    var aliases = new Map(), groups = new Map(), ambiguous = 0;
+    var sorted = todos.slice().sort(function(a,b){return String(a.id).localeCompare(String(b.id));});
+    sorted.forEach(function(h){
+      var d=_d(h);
+      if((h.tipo!==TIPOS.abono&&h.tipo!==TIPOS.cargo)||!d.opId)return;
+      var key=String(d.opId);
+      var g=groups.get(key)||[];g.push(h);groups.set(key,g);
+    });
+    groups.forEach(function(g){
+      if(!g.some(function(h){return String(_d(h).clienteId)===String(clienteId);}))return;
+      function fingerprint(h){var d=_d(h);return JSON.stringify([h.tipo,String(d.clienteId),Number(d.monto),d.motivo||'',String(d.ventaId||'')]);}
+      if(g.some(function(h){return fingerprint(h)!==fingerprint(g[0]);})){ambiguous++;return;}
+      if(g[0].tipo===TIPOS.abono)g.slice(1).forEach(function(h){aliases.set(String(h.id),String(g[0].id));});
+    });
+    todos=todos.filter(function(h){return !aliases.has(String(h.id));}).map(function(h){
+      if(h.tipo!==APLICACION)return h;
+      var d=_d(h),canonical=aliases.get(String(d.abonoId));
+      if(!canonical||String(d.clienteId)!==String(clienteId))return h;
+      var copy=Object.assign({},d,{abonoId:canonical});
+      return Object.assign({},h,{datos:_anidado(h)?Object.assign({},h.datos,{payload:copy}):copy});
+    });
     var mios = _sinDuplicados(todos.filter(function (h) {
       return (h.tipo === TIPOS.cargo || h.tipo === TIPOS.abono) &&
         String(_d(h).clienteId || "") === String(clienteId);
     }), "clienteId");
     var vinculos = _vinculosManuales(todos, clienteId);
-    var porId = {}, restauradaDe = {};
-    (ventas || []).forEach(function (v) {
-      if (!v || !v.id) return;
-      porId[v.id] = v;
-      if (v.restauracionDe && !v.anulada) restauradaDe[v.restauracionDe] = v;
+    var porId = Object.create(null), restauradaDe = Object.create(null), restorationBranches = new Map();
+    var saleRows=new Map(), rejectedSaleIds=new Set();
+    function owner(v){return String(v&&v.clienteId||"");}
+    function relevant(v){return JSON.stringify([owner(v),String(v.restauracionDe||""),!!v.anulada,!!v.devuelta,
+      Number(v.precioUnit)||0,Number(v.cantidad)||0,v.info&&v.info.formaPago||"",!!(v.info&&v.info.fiadoAtomico===true),
+      Number(new Date(v.fecha).getTime())||0]);}
+    (ventas||[]).forEach(function(v){
+      if(!v||!v.id)return;
+      var id=String(v.id),list=saleRows.get(id)||[];list.push(v);saleRows.set(id,list);
     });
+    saleRows.forEach(function(list,id){
+      if(list.some(function(v){return relevant(v)!==relevant(list[0]);})){
+        rejectedSaleIds.add(id);
+        if(list.some(function(v){return owner(v)===String(clienteId);}))ambiguous++;
+        return;
+      }
+      porId[id]=list[0];
+    });
+    Object.keys(porId).forEach(function(id){
+      var v=porId[id],parent=String(v.restauracionDe||"");if(!parent)return;
+      var root=porId[parent];
+      if(rejectedSaleIds.has(parent)||(root&&owner(root)&&owner(v)&&owner(root)!==owner(v))){
+        if(owner(v)===String(clienteId)||owner(root)===String(clienteId))ambiguous++;
+        return;
+      }
+      var list=restorationBranches.get(parent)||[];list.push(v);restorationBranches.set(parent,list);
+    });
+    restorationBranches.forEach(function(list,parent){
+      if(list.length===1){restauradaDe[parent]=list[0];return;}
+      var root=porId[parent];
+      if(owner(root)===String(clienteId)||list.some(function(v){return owner(v)===String(clienteId);}))ambiguous++;
+    });
+    var done=new Set();
+    Object.keys(porId).forEach(function(id){
+      var path=[],seen=new Map(),next=id;
+      while(next&&!done.has(next)&&porId[next]&&restauradaDe[next]){
+        if(seen.has(next)){
+          var cycle=path.slice(seen.get(next));
+          if(cycle.some(function(k){return owner(porId[k])===String(clienteId);}))ambiguous++;
+          cycle.forEach(function(k){delete restauradaDe[k];});
+          break;
+        }
+        seen.set(next,path.length);path.push(next);next=String(restauradaDe[next].id);
+      }
+      path.forEach(function(k){done.add(k);});
+    });
+    // Workshop: known direct sale receipts describe one full obligation, not partial charges.
+    // Keep all immutable facts; collapse only matching stored values within a verified sale.
+    var saleGroups = new Map(), saleAliases = new Map(), suppressed = new Set();
+    mios.forEach(function(h){
+      var d=_d(h), v=porId[String(d.ventaId||"")];
+      if(h.tipo!==TIPOS.cargo||!v||String(v.clienteId||"")!==String(clienteId))return;
+      var effective=_ventaEfectiva(v,restauradaDe,{});
+      if(!effective||effective.anulada||effective.devuelta||!effective.info||effective.info.formaPago!=="fiado"||
+        String(effective.clienteId||"")!==String(clienteId))return;
+      var key=String(effective.id), g=saleGroups.get(key)||[];
+      g.push(h);saleGroups.set(key,g);
+    });
+    var manualEffective = new Set();
+    mios.forEach(function(h){
+      var d=_d(h), id=vinculos[String(h.id)], v=porId[id];
+      if(h.tipo!==TIPOS.cargo||d.ventaId||!id||!v||String(v.clienteId||"")!==String(clienteId))return;
+      var effective=_ventaEfectiva(v,restauradaDe,{});
+      if(effective&& !effective.anulada && !effective.devuelta && effective.info && effective.info.formaPago==="fiado" && String(effective.clienteId||"")===String(clienteId))manualEffective.add(String(effective.id));
+    });
+    saleGroups.forEach(function(g,key){
+      if(manualEffective.has(key)){ambiguous++;return;}
+      if(g.length<2)return;
+      var cents=_centavos(_d(g[0]).monto);
+      if(cents<=0||g.some(function(h){return _centavos(_d(h).monto)!==cents;})){ambiguous++;return;}
+      g.sort(function(a,b){return String(a.id).localeCompare(String(b.id));});
+      var canonical="venta:"+String(_d(g[0]).ventaId);
+      g.forEach(function(h,i){saleAliases.set("venta:"+String(_d(h).ventaId),canonical);if(i)suppressed.add(String(h.id));});
+    });
+    mios=mios.filter(function(h){return !suppressed.has(String(h.id));});
     var centavos = 0;
     var movimientos = mios.map(function (h) {
       var esCargo = h.tipo === TIPOS.cargo;
@@ -526,9 +628,38 @@
       });
     }
     movimientos.sort(function (a, b) { return a.fecha - b.fecha; });
+    // Map historical keys to the sole known effective obligation, including synthetic receipts.
+    // One pass over projected debts and one pass over sales; never merge ambiguous claims.
+    var effectiveClaims=new Map();
+    movimientos.forEach(function(m){
+      if(m.tipo!=="cargo"||!m.ventaId)return;
+      var v=porId[String(m.ventaId)];
+      if(!v||String(v.clienteId||"")!==String(clienteId))return;
+      var e=_ventaEfectiva(v,restauradaDe,{});
+      if(!e||e.anulada||e.devuelta||!e.info||e.info.formaPago!=="fiado"||String(e.clienteId||"")!==String(clienteId))return;
+      var id=String(e.id),list=effectiveClaims.get(id)||[];list.push(m);effectiveClaims.set(id,list);
+    });
+    Object.keys(porId).forEach(function(id){
+      var v=porId[id];
+      if(String(v.clienteId||"")!==String(clienteId))return;
+      var e=_ventaEfectiva(v,restauradaDe,{});
+      var claims=e&&effectiveClaims.get(String(e.id));
+      if(claims&&claims.length===1&&!claims[0].vinculoManual) saleAliases.set("venta:"+id,claveCargo(claims[0]));
+    });
+    todos=todos.map(function(h){
+      var d=_d(h);
+      if(h.tipo!==APLICACION||String(d.clienteId)!==String(clienteId))return h;
+      function remap(k){return saleAliases.get(String(k))||k;}
+      var copy=Object.assign({},d);
+      if(Array.isArray(d.partes))copy.partes=d.partes.map(function(p){return Object.assign({},p,{cargoKey:remap(p.cargoKey)});});
+      if(d.cargoKey)copy.cargoKey=remap(d.cargoKey);
+      return Object.assign({},h,{datos:_anidado(h)?Object.assign({},h.datos,{payload:copy}):copy});
+    });
     _marcarConsumos(movimientos, todos, clienteId);
     return { saldo: +(centavos / 100).toFixed(2), movimientos: movimientos,
       conflictosAplicacion: movimientos.conflictosAplicacion || 0,
+      conflictosIdentidadExperimental: ambiguous,
+      aliasesAbonoExperimental: aliases, aliasesCargoExperimental: saleAliases,
       aplicacionesAceptadas: movimientos.aplicacionesAceptadas || [] };
   }
 
@@ -543,7 +674,8 @@
     return global.AMG.Hechos.todos().then(function (todos) {
       var r = calcularSaldo(todos, clienteId, _ventasActuales(ventas));
       return Promise.resolve(global.AMG.Hechos.verificarCadenas(todos)).then(function (integridad) {
-        return { saldo: r.saldo, movimientos: r.movimientos, integridad: integridad, conflictosAplicacion: r.conflictosAplicacion,
+        return { saldo: r.saldo, movimientos: r.movimientos, integridad: integridad, conflictosAplicacion: r.conflictosAplicacion, conflictosIdentidadExperimental: r.conflictosIdentidadExperimental || 0,
+          saldoProvisional: Number(r.conflictosIdentidadExperimental || 0) > 0,
           aplicacionesAceptadas: r.aplicacionesAceptadas };
       });
     });
@@ -620,8 +752,11 @@
   // que debe — no depende de que cada pantalla nueva se acuerde de ocultarlo.
   function vistaCarteraSegunRol(saldoInfo, rol) {
     var esEmpleado = rol === "empleado";
+    var identidadEnConflicto = Number(saldoInfo.conflictosIdentidadExperimental || 0) > 0;
     return {
       saldo: saldoInfo.saldo,
+      saldoProvisional: identidadEnConflicto,
+      conflictosIdentidadExperimental: saldoInfo.conflictosIdentidadExperimental || 0,
       integridad: saldoInfo.integridad,
       conflictosAplicacion: saldoInfo.conflictosAplicacion || 0,
       tienePendiente: saldoInfo.saldo < 0,
@@ -630,7 +765,7 @@
       historial: esEmpleado ? [] : saldoInfo.movimientos,
       // 2026-10-21 (fiados de Belen): para COBRAR, todo rol necesita ver que consumos
       // siguen abiertos. Solo lo minimo (sin quien registro ni pagos ajenos).
-      consumosPendientes: (saldoInfo.movimientos || []).filter(function (m) {
+      consumosPendientes: (identidadEnConflicto ? [] : (saldoInfo.movimientos || [])).filter(function (m) {
         return m.tipo === "cargo" && (m.estado === "pendiente" || m.estado === "parcial");
       }).map(function (m) {
         return { cargoKey: m.cargoKey, motivo: m.motivo, fecha: m.fecha, monto: m.monto, pendiente: m.pendiente, estado: m.estado };
