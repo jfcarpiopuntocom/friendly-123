@@ -75,3 +75,11 @@ html.ui2 .tecla.hundida{background:#0F1923!important;border-color:#0F1923!import
 
 html.ui2 :focus-visible{outline:3px solid #5294AC!important;outline-offset:2px}
 @media (prefers-reduced-motion:reduce){html.ui2 *{transition:none!important}}
+
+/* Commissions: the directory uses the same native details/summary disclosure as the ranking.
+   Explicit black triangle keeps the disclosure visible alongside the block heading in WebKit. */
+[data-comm-directory-fold]>summary{display:flex;align-items:center;gap:8px;list-style:none}
+[data-comm-directory-fold]>summary::-webkit-details-marker{display:none}
+[data-comm-directory-fold]>summary::before{content:"";display:block;flex:0 0 auto;width:0;height:0;border-top:6px solid transparent;border-bottom:6px solid transparent;border-left:8px solid #000}
+[data-comm-directory-fold][open]>summary::before{transform:rotate(90deg)}
+[data-comm-directory-fold]>summary>h3{flex:1;min-width:0}
