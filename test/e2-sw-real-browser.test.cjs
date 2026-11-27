@@ -92,7 +92,7 @@ test("E2 "+browserName+": SW update NEVER navigates in-app; PIN screen adopts wi
   }));
   console.log("E2 reopened PWA:",JSON.stringify(ctl));
   mark("wait reopened controller");
-  await p.waitForFunction(()=>!!navigator.serviceWorker.controller,null,{timeout:15000});
+  await p.waitForFunction(()=>navigator.serviceWorker.controller?.state==='activated',null,{timeout:15000});
   // A cached health script uses MessagePort, while older callers use the global listener.
   const identity=await p.evaluate(()=>new Promise(resolve=>{
     const c=navigator.serviceWorker.controller,channel=new MessageChannel();
@@ -116,10 +116,10 @@ test("E2 "+browserName+": SW update NEVER navigates in-app; PIN screen adopts wi
   mark("request worker update while inside app");
   await p.evaluate(()=>document.dispatchEvent(new Event("visibilitychange")));
   await p.waitForFunction(expected=>new Promise(resolve=>{
-    const c=navigator.serviceWorker.controller;if(!c)return resolve(false);
+    const c=navigator.serviceWorker.controller;if(!c||c.state!=='activated')return resolve(false);
     let complete=false;
     const timer=setTimeout(()=>{if(!complete){complete=true;navigator.serviceWorker.removeEventListener('message',onMsg);resolve(false)}},1200);
-    function onMsg(e){if(e.data?.tipo==='shell-actual'){if(!complete){complete=true;clearTimeout(timer);navigator.serviceWorker.removeEventListener('message',onMsg);resolve(e.data.shell===expected)}}}
+    function onMsg(e){if(e.data?.tipo==='shell-actual'){if(!complete){complete=true;clearTimeout(timer);navigator.serviceWorker.removeEventListener('message',onMsg);resolve(e.source===c&&navigator.serviceWorker.controller===c&&c.state==='activated'&&e.data.shell===expected)}}}
     navigator.serviceWorker.addEventListener('message',onMsg);c.postMessage({tipo:'que-shell'});
   }),shellNext,{timeout:30000});
   mark("wait for the real controllerchange / update-pending event");
@@ -150,7 +150,19 @@ test("E2 "+browserName+": SW update NEVER navigates in-app; PIN screen adopts wi
     // The real MutationObserver on the PIN gate must trigger adoption.
 
   });
-  await navigation;
+  try { await navigation; } catch (error) {
+    console.log('E2 PIN failure state:',JSON.stringify(await p.evaluate(async()=>({
+      controller:navigator.serviceWorker.controller?.state||null,
+      active:(await navigator.serviceWorker.getRegistration())?.active?.state||null,
+      target:localStorage.getItem('f123_version_vista'),
+      pending:sessionStorage.getItem('f123_act_sola_pendiente'),
+      visible:document.visibilityState,
+      safe:window._ocActSola.seguro(),
+      splash:!!document.getElementById('f123-update-splash'),
+      loads:sessionStorage.getItem('e2-loads')
+    }))));
+    throw error;
+  }
   await p.waitForFunction(n=>Number(sessionStorage.getItem("e2-loads"))===n+1,initial,{timeout:15000});
   const result=await p.evaluate(()=>({
     loads:Number(sessionStorage.getItem("e2-loads")),
