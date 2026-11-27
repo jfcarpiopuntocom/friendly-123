@@ -12,7 +12,7 @@ const env={document,fetch,API:"/api",window:{t:k=>k,tf:(k,a)=>k+JSON.stringify(a
 await new Function(...Object.keys(env),"let _promotorasVivasCache=[];"+extract(s)+"\nreturn renderGestionPromotoras();")(...Object.values(env));const list=nodes.get("listaPromotoras");if(listeners["edit-b"])listeners["edit-b"]();if(listeners["archive-b"])await listeners["archive-b"]();
 return {fold:html.includes("data-comm-directory-fold"),open:html.includes("data-comm-directory-fold open"),heading:(html.match(/comm\.g\.listHeading/g)||[]).length,formOutside:html.indexOf("btnAltaPromotora")<html.indexOf("data-comm-directory-fold"),query:nodes.get("promBuscar").value,alpha:list.innerHTML.includes('data-abrir-promotora="a"'),beta:list.innerHTML.includes('data-abrir-promotora="b"'),edits,requests,archive:!!listeners["archive-b"]};
 }
-test('directory: independent disclosure, one heading, all agents including zero, edit and archive preserved',async()=>{const r=await exercise(source);assert.ok(r.fold&&!r.open&&r.formOutside&&r.alpha&&r.beta&&r.archive);assert.equal(r.heading,1);assert.deepEqual(r.edits,['b']);assert.ok(r.requests.every(x=>x[1]==='GET'));});
+test('directory: independent disclosure, one heading, all agents including zero, edit and archive preserved',async()=>{const r=await exercise(source);assert.ok(r.fold&&r.open&&r.formOutside&&r.alpha&&r.beta&&r.archive);assert.equal(r.heading,1);assert.deepEqual(r.edits,['b']);assert.ok(r.requests.every(x=>x[1]==='GET'));});
 test('directory: opened disclosure survives reactive repaint',async()=>{const r=await exercise(source,{open:true});assert.equal(r.open,true);});
 test('directory: closed disclosure and search survive reactive repaint',async()=>{const r=await exercise(source,{open:false,query:'beta'});assert.equal(r.open,false);assert.equal(r.query,'beta');assert.equal(r.alpha,false);assert.equal(r.beta,true);});
 
@@ -32,10 +32,7 @@ for(const engine of ['chromium','webkit'])test('native '+engine+': management di
   await page.evaluate(()=>window.renderGestionPromotoras());
   const fold=page.locator('[data-comm-directory-fold]'),summary=fold.locator(':scope > summary');
   const form=page.locator('#btnAltaPromotora'),search=page.locator('#promBuscar'),rank=page.locator('[data-comm-ranking-fold]');
-  assert.equal(await fold.count(),1);assert.equal(await summary.locator('h3').count(),1);assert.equal(await fold.evaluate(e=>e.open),false);
-  assert.equal(await search.isVisible(),false);assert.equal(await form.isVisible(),true);assert.equal(await rank.evaluate(e=>e.open),true);
-  assert.equal(await page.locator('[data-abrir-promotora="a"]').isVisible(),false);
-  await summary.click();assert.equal(await fold.evaluate(e=>e.open),true);
+  assert.equal(await fold.count(),1);assert.equal(await summary.locator('h3').count(),1);assert.equal(await fold.evaluate(e=>e.open),true);
   assert.equal(await page.locator('[data-abrir-promotora="a"]').isVisible(),true);
   await summary.click();assert.equal(await fold.evaluate(e=>e.open),false);
   assert.equal(await search.isVisible(),false);assert.equal(await form.isVisible(),true);assert.equal(await rank.evaluate(e=>e.open),true);
