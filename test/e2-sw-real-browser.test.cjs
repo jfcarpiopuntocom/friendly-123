@@ -23,7 +23,13 @@ const end=app.indexOf("// Microcirugia 5",start);
 assert.ok(reg&&helperStart>0&&helperEnd>helperStart&&start>helperEnd&&end>start,
   "use actual E2 registration, safe-version helper and auto-update IIFE");
 const safeReloadHelper=app.slice(helperStart,helperEnd);
-const auto=app.slice(start,end);
+const auto=app.slice(start,end)
+ .replace("async function intentar() {","async function intentar() {\n __e2trace('enter',{pending:pendiente(),busy:recargando,visible:documentoVisible(),safe:seguro(),eligible:puedeRecargarVersion(),controller:navigator.serviceWorker.controller?.state});")
+ .replace("if (!objetivo || await shellDelSW() !== objetivo ||","const observed = objetivo ? await shellDelSW() : ''; __e2trace('identity',{objetivo,observed,controller:navigator.serviceWorker.controller?.state}); if (!objetivo || observed !== objetivo ||")
+ .replace("const pintado = await esperarPintadoSplash(splash);\n      if (!pintado || !documentoVisible() || !splashVisible(splash) ||\n          !seguro() || !pendiente() || !puedeRecargarVersion() ||","const pintado = await esperarPintadoSplash(splash);\n __e2trace('paint',{pintado,visible:documentoVisible(),splash:splashVisible(splash),safe:seguro(),pending:pendiente(),eligible:puedeRecargarVersion(),same:navigator.serviceWorker.controller===controlador,controller:controlador?.state,objetivo,target:localStorage.getItem('f123_version_vista')});\n      if (!pintado || !documentoVisible() || !splashVisible(splash) ||\n          !seguro() || !pendiente() || !puedeRecargarVersion() ||")
+ .replace("function intentarOrescate() {","function intentarOrescate() {\n __e2trace('trigger',{pin:enPantallaPIN(),pending:pendiente()});")
+ .replace("function fin(shell) {","function fin(shell) {\n __e2trace('shell-response',{shell,same:sw.controller===c,state:c.state});");
+const tracedAuto="window.__e2Trace=[]; function __e2trace(k,v){window.__e2Trace.push({k,v,t:performance.now()});if(window.__e2Trace.length>100)window.__e2Trace.shift();}\n"+auto;
 assert.match(safeReloadHelper,/sessionStorage\.setItem\("f123_reload_al_entrar", "1"\)/,
   "fixture must extract the actual deferred-reload helper, not stub it");
 function pageHtml(candidate) {
@@ -107,7 +113,7 @@ test("E2 "+browserName+": SW update NEVER navigates in-app; PIN screen adopts wi
   // Inject the exact E2 IIFE from the candidate source into the controlled tab.
   // This models a long-lived PWA without a navigation to bootstrap a new shell.
   mark("inject helper and auto-update IIFE");
-  await p.addScriptTag({content:safeReloadHelper+'\n'+auto});
+  await p.addScriptTag({content:safeReloadHelper+'\n'+tracedAuto});
   mark("wait IIFE ready");
   await p.waitForFunction(()=>window._ocActSola&&navigator.serviceWorker.controller,null,{timeout:10000});
   candidate=true; // A future navigation serves the updated document.
@@ -159,7 +165,7 @@ test("E2 "+browserName+": SW update NEVER navigates in-app; PIN screen adopts wi
       visible:document.visibilityState,
       safe:window._ocActSola.seguro(),
       splash:!!document.getElementById('f123-update-splash'),
-      loads:sessionStorage.getItem('e2-loads')
+      loads:sessionStorage.getItem('e2-loads'),trace:window.__e2Trace
     }))));
     throw error;
   }

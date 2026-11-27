@@ -1,0 +1,40 @@
+name: v936 E2 causal diagnostic (isolated, no deploy)
+on:
+  push:
+    branches: [fix/v936-e2-causal-diagnostic-20261127]
+permissions:
+  contents: read
+jobs:
+  trace:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Same synthetic fixtures as full release gate
+        run: |
+          git show 82952a84958641010c48bfbee6aab80007ba12e9:docs/sync-yjs.js > /tmp/f123_v607_sync_yjs.js
+          git show 7e51ed51560d6138866dae98e4a01ff1772db51c:docs/sync-yjs.js > /tmp/f123_v606_sync_yjs.js
+          npm install --no-save --prefix "$RUNNER_TEMP/p0-s4-idb" fake-indexeddb@6.2.5 --ignore-scripts --no-audit --no-fund
+      - name: Repeat original full release gate with decision traces only
+        env:
+          NODE_PATH: ${{ runner.temp }}/p0-s4-idb/node_modules
+          F123_V607_SYNC_FILE: /tmp/f123_v607_sync_yjs.js
+          F123_V606_SYNC_FILE: /tmp/f123_v606_sync_yjs.js
+        run: |
+          set -euo pipefail
+          mapfile -t TESTS < <(node scripts/p0-hotfix-tests.cjs 3ef07ee3df4621de26a59d7ce949f62af3552d13 HEAD)
+          (( ${#TESTS[@]} > 0 ))
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=2 --test-timeout=120000 "${TESTS[@]}"
