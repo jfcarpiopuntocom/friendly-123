@@ -510,8 +510,30 @@
       }
       var list=restorationBranches.get(parent)||[];list.push(v);restorationBranches.set(parent,list);
     });
+    // Count live descendants bottom-up. A cancelled sibling without a live
+    // descendant cannot compete with a single effective restoration.
+    // Saturate at 2; unresolved nodes are cycles and stay ambiguous.
+    var remaining=new Map(), liveCount=new Map(), parents=new Map(), ready=[];
+    Object.keys(porId).forEach(function(id){
+      remaining.set(id,(restorationBranches.get(id)||[]).length);
+      liveCount.set(id,porId[id].anulada?0:1);
+      if(!remaining.get(id))ready.push(id);
+    });
     restorationBranches.forEach(function(list,parent){
-      if(list.length===1){restauradaDe[parent]=list[0];return;}
+      list.forEach(function(v){parents.set(String(v.id),parent);});
+    });
+    for(var ri=0;ri<ready.length;ri++){
+      var child=ready[ri], parent=parents.get(child);
+      if(!remaining.has(parent))continue;
+      liveCount.set(parent,Math.min(2,liveCount.get(parent)+liveCount.get(child)));
+      var left=remaining.get(parent)-1;remaining.set(parent,left);
+      if(!left)ready.push(parent);
+    }
+    restorationBranches.forEach(function(list,parent){
+      var unknown=list.some(function(v){return remaining.get(String(v.id))!==0;});
+      var viable=list.filter(function(v){return liveCount.get(String(v.id))>0;});
+      if(!unknown&&viable.length===1){restauradaDe[parent]=viable[0];return;}
+      if(!unknown&&!viable.length){if(list.length===1)restauradaDe[parent]=list[0];return;}
       var root=porId[parent];
       if(owner(root)===String(clienteId)||list.some(function(v){return owner(v)===String(clienteId);}))ambiguous++;
     });

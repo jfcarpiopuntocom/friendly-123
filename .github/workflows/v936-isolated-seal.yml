@@ -1,0 +1,42 @@
+name: Isolated v936 candidate seal (no deploy)
+on:
+  push:
+    branches: [fix/v936-restore-tree-proof-20261127]
+    paths: ['docs/cartera.js', 'test/p0-commerce-integrity.test.cjs', '.github/workflows/v936-isolated-seal.yml']
+permissions:
+  contents: write
+jobs:
+  seal:
+    if: github.ref == 'refs/heads/fix/v936-restore-tree-proof-20261127'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Exact projection regression
+        run: node --test --test-name-pattern="historical restored debt" test/p0-commerce-integrity.test.cjs
+      - name: Build and validate canonical assets
+        run: |
+          set -euo pipefail
+          node scripts/build-app-entry.cjs
+          node scripts/build-app-entry.cjs --check
+          node scripts/build-dashboard-entry.cjs
+          node scripts/build-dashboard-entry.cjs --check
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          git diff --check
+      - name: Seal only the isolated branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/cartera.min.js docs/version-manifest.json
+          if ! git diff --cached --quiet; then
+            git commit -m "build(v936): seal historical restoration projection"
+            git push origin HEAD:refs/heads/fix/v936-restore-tree-proof-20261127
+          fi
