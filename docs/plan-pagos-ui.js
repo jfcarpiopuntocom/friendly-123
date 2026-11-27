@@ -481,7 +481,7 @@
     _pagoAutorizarCobro(); // role may have changed while async IDB intent persisted
     var response = await fetch(API + '/clientes/' + clienteId + '/abonar', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
     var result = await response.json();
-    if (!response.ok || result.error) throw new Error(result.error || 'Could not confirm the payment.');
+    if (!response.ok || result.error) { var e = new Error(result.error || 'Could not confirm the payment.'); e.status = response.status; throw e; }
     if (result.opId !== payload.opId || !result.movimientoId) throw new Error(es ? 'El pago no está confirmado. Conserva este importe para revisarlo.' : 'The payment is not confirmed. Keep this amount for review.');
     if (!(opciones && opciones.conservarIntencion))
       await _pagoLiberarReferencia(key, clienteId, "payment", payload.opId, contextoPago);
@@ -508,7 +508,7 @@
     });
     var respuesta = await res.json().catch(function () { return {}; });
     if (!res.ok || respuesta.error || !respuesta.aplicacionId || respuesta.opId !== dato.opId) {
-      throw new Error(respuesta.error || "Payment saved; allocation pending confirmation.");
+      var e = new Error(respuesta.error || "Payment saved; allocation pending confirmation."); e.status = res.status; throw e;
     }
     // Only a verified business allocation receipt can retire the intent.
     await _pagoLiberarReferencia(claveAsignacion(clienteId), clienteId, "allocation", dato.opId, contextoPago);
@@ -700,6 +700,12 @@
             ? "Algunos consumos pertenecen a otro cliente según las ventas. No pueden asignarse aquí; revisa el historial sin borrar nada."
             : "Some purchases are linked to another customer. They cannot be paid here; review the history without deleting anything.";
         }
+        if (info && info.saldoProvisional) {
+          q("pp-ab-msg").style.color = "#B0183E";
+          q("pp-ab-msg").textContent = es ? "Saldo pendiente de verificación. Revisa el historial antes de asignar el pago." : "Balance pending verification. Review the history before allocating payment.";
+          q("pp-ab-ctx").textContent = "";
+          return;
+        }
         var debe = info && info.saldo < 0 ? -info.saldo : 0;
         return global.AMG.PlanPagos.estadoDelPlan(clienteId).then(function (e) {
           var t = debe > 0 ? "Owes " + fmt(debe) + "." : "No outstanding balance.";
@@ -722,9 +728,18 @@
       var msg = q("pp-ab-msg"), monto = Number(q("pp-ab-monto").value);
       var errorAsignacion = function (e) {
         msg.style.color = "#B0183E";
-        msg.textContent = es
-          ? "Pago conservado; asignación pendiente: " + ((e && e.message) || "reintenta la asignación")
-          : "Payment preserved; allocation pending: " + ((e && e.message) || "retry allocation");
+        var confirmado = !!(pendienteAsignacion && pendienteAsignacion.abonoId) || !!(e && e.cobroConfirmado);
+        var conflicto = !!(e && e.status === 409);
+        var sinReferencia = !!(e && e.codigo === "F123_REFERENCIA_PAGO_NO_GUARDADA");
+        if (conflicto) msg.textContent = confirmado
+          ? (es ? "Pago confirmado; asignación en conflicto. Revisa el historial antes de continuar." : "Payment confirmed; allocation conflict. Review history before continuing.")
+          : (es ? "Conflicto de pago; recibo sin confirmar. Revisa la referencia original." : "Payment conflict; receipt unconfirmed. Review the original reference.");
+        else if (confirmado) msg.textContent = es
+          ? "Pago confirmado; asignación pendiente. No cobres de nuevo." : "Payment confirmed; allocation pending. Do not charge again.";
+        else if (sinReferencia) msg.textContent = es
+          ? "Referencia no guardada; verifica el estado del pago antes de reanudar." : "Reference not saved; verify payment status before resuming.";
+        else msg.textContent = es
+          ? "Pago sin confirmar. Reanuda con la misma referencia." : "Payment unconfirmed. Resume with the same reference.";
       };
       function finalizar() {
         cerrar();
