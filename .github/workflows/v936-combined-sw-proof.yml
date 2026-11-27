@@ -1,0 +1,36 @@
+name: v936 combined SW proof (isolated)
+on:
+  push:
+    branches: [fix/v936-combined-sw-proof-20261127]
+    paths: ['docs/sw.js', 'test/**', 'scripts/p0-hotfix-tests.cjs', '.github/workflows/v936-combined-sw-proof.yml']
+permissions:
+  contents: read
+jobs:
+  proof:
+    if: github.ref == 'refs/heads/fix/v936-combined-sw-proof-20261127'
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 8
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Canonical build, generated assets, manifest and shell
+        run: |
+          set -euo pipefail
+          node scripts/build-app-entry.cjs --check
+          node scripts/build-dashboard-entry.cjs --check
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          git diff --exit-code
+      - name: Native controls and all SW and PIN assertions
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/p0-native-async-wait.test.cjs test/p0-sw-install-manifest.test.cjs test/sw-install-durable-4d.test.cjs test/p0-c98-sw-binary-sri.test.cjs test/p0-c179-safari-sw-activate-cache-claim-order.test.cjs test/p0-sw-coherence-block2.test.cjs test/p0-sw-document-affinity.test.cjs test/e2-sw-real-browser.test.cjs
