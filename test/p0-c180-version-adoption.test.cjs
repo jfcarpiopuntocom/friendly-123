@@ -17,7 +17,7 @@ for (const file of ['src/app/app-inline-03.js','docs/app-inline-03.min.js']) {
     const local=new Map([['f123_version_vista','v0.8.73|f123-shell-v873']]);
     const storage=m=>({getItem:k=>m.has(k)?m.get(k):null,setItem:(k,v)=>m.set(k,String(v)),removeItem:k=>m.delete(k)});
     const listeners={};
-    const sw={controller:{postMessage(){const fn=listeners.message;if(fn)fn({data:{tipo:'shell-actual',shell:matching?'f123-shell-v873':'f123-shell-v872'}});}},
+    const sw={controller:{state:'activated',postMessage(){const fn=listeners.message;if(fn)fn({source:sw.controller,data:{tipo:'shell-actual',shell:matching?'f123-shell-v873':'f123-shell-v872'}});}},
       addEventListener:(k,fn)=>listeners[k]=fn,removeEventListener:(k,fn)=>{if(listeners[k]===fn)delete listeners[k]},
       getRegistration:async()=>({update:async()=>{}})};
     const gate=pin?{style:{display:'flex'},getClientRects:()=>[{}]}:null;

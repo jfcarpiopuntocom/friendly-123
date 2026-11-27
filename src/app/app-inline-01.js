@@ -1514,10 +1514,11 @@ async function pintarSaldoCartera(clienteId) {
     const info = await (await fetch(`${API}/clientes/${clienteId}/cartera`)).json();
     if (el.__carteraLectura !== lectura) return; // a late read cannot undo a payment repaint
     const es = window.OCI18n && window.OCI18n.locale && String(window.OCI18n.locale()).startsWith("es");
-    const integridadPendiente = !!(info && info.integridad && !info.integridad.ok);
+    const saldoProvisional = !!(info && info.saldoProvisional);
+    const integridadPendiente = saldoProvisional || !!(info && info.integridad && !info.integridad.ok);
     const avisoIntegridad = integridadPendiente
       ? '<span style="display:inline-block;margin-left:8px;font-size:12px;color:#19354B;font-weight:600;">' + (es ? 'Saldo pendiente de verificar — ' : 'Balance pending verification — ') +
-        escHtml(info.integridad.razon || "sync incomplete") + '</span>'
+        escHtml((info.integridad && info.integridad.razon) || (saldoProvisional ? (es ? "identidad de pago en conflicto" : "payment identity conflict") : "sync incomplete")) + '</span>'
       : "";
     // HOTFIX 2026-10-02: an integrity warning is diagnostic, not a reason to hide
     // a debt already computed by /cartera or the owner's existing payment action.
@@ -6167,10 +6168,24 @@ async function renderGestionPromotoras(){
   window.OCPromotorasCache = _promotorasVivasCache;
   const buscarPromEl = document.getElementById("promBuscar");
   if (buscarPromEl) buscarPromEl.value = queryAnterior;
-  renderListaPromotorasViva(queryAnterior);
+  const directorio = box.querySelector("[data-comm-directory-fold]");
+  let pintado = false;
+  const pintar = () => {
+    renderListaPromotorasViva(buscarPromEl ? buscarPromEl.value : "");
+    pintado = true;
+  };
+  if (!directorio || directorio.open || queryAnterior) pintar();
+  if (directorio && typeof directorio.addEventListener === "function") {
+    directorio.addEventListener("toggle", () => {
+      if (directorio.open && !pintado && (directorio.isConnected ?? true)) pintar();
+    });
+  }
   if (buscarPromEl && !buscarPromEl.dataset.listo) {
     buscarPromEl.dataset.listo = "1";
-    buscarPromEl.addEventListener("input", () => renderListaPromotorasViva(buscarPromEl.value));
+    buscarPromEl.addEventListener("input", () => {
+      if (directorio && !directorio.open) directorio.open = true;
+      pintar();
+    });
   }
   const inputTexto = document.getElementById("promNombre");
   const selectNombre = document.getElementById("promNombreSelect");

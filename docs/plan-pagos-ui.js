@@ -378,12 +378,18 @@
     return a && b && a.opId === b.opId && _pagoSinRecibo(a) === _pagoSinRecibo(b) &&
       (!a.abonoId || !b.abonoId || a.abonoId === b.abonoId);
   }
-  async function leerReferenciaDurable(clienteId, tipo) {
+  async function leerReferenciaDurable(clienteId, tipo, observacion) {
     var legacy = tipo === "payment" ? abonoPendiente(clienteId) : leerAsignacion(clienteId);
     var ctx = await _pagoIDB();
     if (!ctx) return legacy;
     _pagoMismaSesion(ctx);
-    var idb = await ctx.store.get({clientId: clienteId, kind: tipo});
+    var idb;
+    if (observacion) {
+      var foto = await ctx.store.observe({clientId: clienteId, kind: tipo});
+      observacion.ctx = ctx;
+      observacion.generation = foto.generation;
+      idb = foto.value;
+    } else idb = await ctx.store.get({clientId: clienteId, kind: tipo});
     _pagoMismaSesion(ctx);
     if (legacy && ctx.legacyAmbiguo)
       throw new Error("Payment intent conflict: referencia histórica sin licencia verificable.");
@@ -391,10 +397,13 @@
       throw new Error("Payment intent conflict: una referencia anterior necesita revisión antes de cobrar.");
     return idb && idb.abonoId ? idb : (legacy || idb);
   }
-  async function guardarReferenciaPagoDurable(clave, dato, cobroConfirmado, clienteId, tipo) {
+  async function guardarReferenciaPagoDurable(clave, dato, cobroConfirmado, clienteId, tipo, observacion) {
     var ctx;
     try {
+      if (observacion && observacion.ctx) _pagoMismaSesion(observacion.ctx);
       ctx = await _pagoIDB();
+      if (observacion && observacion.ctx && (!ctx || ctx.tienda !== observacion.ctx.tienda || ctx.rol !== observacion.ctx.rol))
+        throw new Error("Payment intent conflict: notebook changed before durable write.");
       if (!ctx) { guardarReferenciaPago(clave, dato, cobroConfirmado); return null; }
       _pagoMismaSesion(ctx);
       var legacy = tipo === "payment" ? abonoPendiente(clienteId) : leerAsignacion(clienteId);
@@ -403,7 +412,8 @@
       if (legacy && !_pagoCompatibles(legacy, dato))
         throw new Error("Payment intent conflict: referencia local diferente.");
       var existente = await ctx.store.get({clientId: clienteId, kind: tipo});
-      if (!existente) await ctx.store.putIfAbsent({clientId: clienteId, kind: tipo, value: dato});
+      if (!existente) await ctx.store.putIfAbsent({clientId: clienteId, kind: tipo, value: dato,
+        expectedGeneration: observacion && observacion.generation});
       else if (existente.opId !== dato.opId || !_pagoCompatibles(existente, dato))
         throw new Error("Payment intent conflict: original opId o recibo no coincide.");
       else if (JSON.stringify(existente) !== JSON.stringify(dato)) {
@@ -460,7 +470,8 @@
     var es = global.OCI18n && String(global.OCI18n.locale()).startsWith('es');
     var payload = { monto: Number(Number(monto).toFixed(2)), motivo: String(motivo || '').slice(0,300) };
     if (!Number.isSafeInteger(Math.round(payload.monto * 100)) || !(payload.monto > 0)) throw new Error(es ? 'Ingresa un importe válido de al menos un centavo.' : 'Enter a valid amount of at least one cent.');
-    var key = claveAbono(clienteId), previo = await leerReferenciaDurable(clienteId, "payment");
+    var observacion = {};
+    var key = claveAbono(clienteId), previo = await leerReferenciaDurable(clienteId, "payment", observacion);
     // A different allocation is still awaiting confirmation for this customer.
     // Direct/unassigned payments must not silently overtake that receipt.
     if (!(opciones && opciones.opId) && await leerReferenciaDurable(clienteId, "allocation"))
@@ -476,12 +487,12 @@
       payload.opId = intencionId || ('customer-payment:' + (global.crypto && global.crypto.randomUUID ? global.crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2)));
     } else payload = previo;
     // The intent MUST be readable from durable storage before a financial POST.
-    var contextoPago = await guardarReferenciaPagoDurable(key, payload, false, clienteId, "payment");
+    var contextoPago = await guardarReferenciaPagoDurable(key, payload, false, clienteId, "payment", observacion);
     _pagoMismaSesion(contextoPago);
     _pagoAutorizarCobro(); // role may have changed while async IDB intent persisted
     var response = await fetch(API + '/clientes/' + clienteId + '/abonar', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
     var result = await response.json();
-    if (!response.ok || result.error) throw new Error(result.error || 'Could not confirm the payment.');
+    if (!response.ok || result.error) { var e = new Error(result.error || 'Could not confirm the payment.'); e.status = response.status; throw e; }
     if (result.opId !== payload.opId || !result.movimientoId) throw new Error(es ? 'El pago no está confirmado. Conserva este importe para revisarlo.' : 'The payment is not confirmed. Keep this amount for review.');
     if (!(opciones && opciones.conservarIntencion))
       await _pagoLiberarReferencia(key, clienteId, "payment", payload.opId, contextoPago);
@@ -508,7 +519,7 @@
     });
     var respuesta = await res.json().catch(function () { return {}; });
     if (!res.ok || respuesta.error || !respuesta.aplicacionId || respuesta.opId !== dato.opId) {
-      throw new Error(respuesta.error || "Payment saved; allocation pending confirmation.");
+      var e = new Error(respuesta.error || "Payment saved; allocation pending confirmation."); e.status = res.status; throw e;
     }
     // Only a verified business allocation receipt can retire the intent.
     await _pagoLiberarReferencia(claveAsignacion(clienteId), clienteId, "allocation", dato.opId, contextoPago);
@@ -700,6 +711,12 @@
             ? "Algunos consumos pertenecen a otro cliente según las ventas. No pueden asignarse aquí; revisa el historial sin borrar nada."
             : "Some purchases are linked to another customer. They cannot be paid here; review the history without deleting anything.";
         }
+        if (info && info.saldoProvisional) {
+          q("pp-ab-msg").style.color = "#B0183E";
+          q("pp-ab-msg").textContent = es ? "Saldo pendiente de verificación. Revisa el historial antes de asignar el pago." : "Balance pending verification. Review the history before allocating payment.";
+          q("pp-ab-ctx").textContent = "";
+          return;
+        }
         var debe = info && info.saldo < 0 ? -info.saldo : 0;
         return global.AMG.PlanPagos.estadoDelPlan(clienteId).then(function (e) {
           var t = debe > 0 ? "Owes " + fmt(debe) + "." : "No outstanding balance.";
@@ -722,9 +739,18 @@
       var msg = q("pp-ab-msg"), monto = Number(q("pp-ab-monto").value);
       var errorAsignacion = function (e) {
         msg.style.color = "#B0183E";
-        msg.textContent = es
-          ? "Pago conservado; asignación pendiente: " + ((e && e.message) || "reintenta la asignación")
-          : "Payment preserved; allocation pending: " + ((e && e.message) || "retry allocation");
+        var confirmado = !!(pendienteAsignacion && pendienteAsignacion.abonoId) || !!(e && e.cobroConfirmado);
+        var conflicto = !!(e && e.status === 409);
+        var sinReferencia = !!(e && e.codigo === "F123_REFERENCIA_PAGO_NO_GUARDADA");
+        if (conflicto) msg.textContent = confirmado
+          ? (es ? "Pago confirmado; asignación en conflicto. Revisa el historial antes de continuar." : "Payment confirmed; allocation conflict. Review history before continuing.")
+          : (es ? "Conflicto de pago; recibo sin confirmar. Revisa la referencia original." : "Payment conflict; receipt unconfirmed. Review the original reference.");
+        else if (confirmado) msg.textContent = es
+          ? "Pago confirmado; asignación pendiente. No cobres de nuevo." : "Payment confirmed; allocation pending. Do not charge again.";
+        else if (sinReferencia) msg.textContent = es
+          ? "Referencia no guardada; verifica el estado del pago antes de reanudar." : "Reference not saved; verify payment status before resuming.";
+        else msg.textContent = es
+          ? "Pago sin confirmar. Reanuda con la misma referencia." : "Payment unconfirmed. Resume with the same reference.";
       };
       function finalizar() {
         cerrar();

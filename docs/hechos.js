@@ -590,12 +590,15 @@
     });
   }
   function registrar(tipo, datos, opciones) {
-    _cola = _cola.then(function () { return construirYGuardar(tipo, datos, 0, opciones); }).catch(function (e) {
-      // Fase A nunca puede tumbar la app: si algo falla, se anota y se sigue.
+    var trabajo = _cola.then(function () { return construirYGuardar(tipo, datos, 0, opciones); });
+    _cola = trabajo.catch(function (e) {
       try { console.warn("[hechos] no se pudo registrar:", e && e.message); } catch (_) {}
       return null;
     });
-    return _cola;
+    return opciones && opciones.propagarConflicto ? trabajo.catch(function (e) {
+      if (e && e.status === 409) throw e;
+      return null;
+    }) : _cola;
   }
 
   // ---------------------------------------------------------------------------

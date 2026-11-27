@@ -320,6 +320,14 @@ const _ocActSolaOn = true;
   // KA prevents same-shell navigation loops; later new shells remain eligible.
   function rescatePendiente() { try { return sessionStorage.getItem(KR) === "1"; } catch (_) { return false; } }
   let recargando = false;
+  let takeoverPendiente = false;
+  function terminarIntento(navegando) {
+    recargando = false;
+    if (takeoverPendiente) {
+      takeoverPendiente = false;
+      if (!navegando) Promise.resolve().then(onShellTomado);
+    }
+  }
   function mostrarSplashActualizando() {
     try {
       if (!enPantallaPIN() || !documentoVisible()) return null;
@@ -401,7 +409,7 @@ const _ocActSolaOn = true;
     } catch (_) { return false; }
     finally {
       if (!navegando && splash && splash.remove) splash.remove();
-      recargando = false;
+      terminarIntento(navegando);
     }
   }
   try { window.__f123RecargarEnSplash = recargarEnSplash; } catch (_) {}
@@ -415,6 +423,7 @@ const _ocActSolaOn = true;
     try {
       const objetivo = (localStorage.getItem("f123_version_vista") || "").split("|")[1] || "";
       if (manualPurgeReentry && (!manualPurgeShell || objetivo === manualPurgeShell)) return false;
+      const controlador = navigator.serviceWorker.controller;
       if (!objetivo || await shellDelSW() !== objetivo ||
           !pendiente() || !documentoVisible() || !seguro() || !puedeRecargarVersion()) return false;
       splash = mostrarSplashActualizando();
@@ -423,7 +432,9 @@ const _ocActSolaOn = true;
       // existing splash is mounted, visible, and confirmed painted (2 rAFs).
       const pintado = await esperarPintadoSplash(splash);
       if (!pintado || !documentoVisible() || !splashVisible(splash) ||
-          !seguro() || !pendiente() || !puedeRecargarVersion()) return false;
+          !seguro() || !pendiente() || !puedeRecargarVersion() ||
+          navigator.serviceWorker.controller !== controlador || !controlador || controlador.state !== "activated" ||
+          (localStorage.getItem("f123_version_vista") || "").split("|")[1] !== objetivo) return false;
       prevKA = sessionStorage.getItem(KA);
       prevKP = sessionStorage.getItem(KP);
       prevKR = sessionStorage.getItem(KR);
@@ -448,20 +459,36 @@ const _ocActSolaOn = true;
     } catch (_) { return false; }
     finally {
       if (!navegando && splash && splash.remove) splash.remove();
-      recargando = false;
+      terminarIntento(navegando);
     }
   }
   function shellDelSW() {
     return new Promise(function (resolve) {
-      const c = navigator.serviceWorker.controller;
-      if (!c) return resolve("");
-      const t = setTimeout(function () { resolve(""); }, 3000);
-      navigator.serviceWorker.addEventListener("message", function onMsg(ev) {
-        if (ev && ev.data && ev.data.tipo === "shell-actual") {
-          clearTimeout(t); navigator.serviceWorker.removeEventListener("message", onMsg); resolve(String(ev.data.shell || ""));
-        }
-      });
-      try { c.postMessage({ tipo: "que-shell" }); } catch (_) { clearTimeout(t); resolve(""); }
+      const sw = navigator.serviceWorker, c = sw.controller;
+      if (!c || c.state !== "activated") return resolve("");
+      let terminado = false, canal = null, t;
+      function fin(shell) {
+        if (terminado) return;
+        terminado = true;
+        clearTimeout(t);
+        sw.removeEventListener("message", onMsg);
+        if (canal) { try { canal.port1.close(); } catch (_) {} }
+        resolve(sw.controller === c && c.state === "activated" ? String(shell || "") : "");
+      }
+      function onMsg(ev) {
+        if (ev && ev.source === c && ev.data && ev.data.tipo === "shell-actual") fin(ev.data.shell);
+      }
+      sw.addEventListener("message", onMsg);
+      t = setTimeout(function () { fin(""); }, 3000);
+      try {
+        if (typeof MessageChannel === "function") {
+          canal = new MessageChannel();
+          canal.port1.onmessage = function (ev) {
+            if (ev.data && ev.data.tipo === "shell-actual") fin(ev.data.shell);
+          };
+          c.postMessage({ tipo: "que-shell" }, [canal.port2]);
+        } else c.postMessage({ tipo: "que-shell" });
+      } catch (_) { fin(""); }
     });
   }
   async function revisar() {
@@ -553,11 +580,28 @@ const _ocActSolaOn = true;
     var actual = navigator.serviceWorker.controller;
     if (!ultimoControladorSW) { ultimoControladorSW = actual; return; }
     if (!actual || actual === ultimoControladorSW) return;
+    // controllerchange can precede the end of activation. Do not consume the
+    // takeover until the same controller can answer the certified identity.
+    if (actual.state !== "activated") {
+      if (actual.state !== "redundant" && typeof actual.addEventListener === "function" && !actual._ocActivationAdoptionWired) {
+        actual._ocActivationAdoptionWired = true;
+        const alActivar = function () {
+          if (actual.state !== "activated" && actual.state !== "redundant") return;
+          actual.removeEventListener("statechange", alActivar);
+          if (actual.state === "activated" && navigator.serviceWorker.controller === actual) onShellTomado();
+        };
+        actual.addEventListener("statechange", alActivar);
+        alActivar();
+      }
+      return;
+    }
+    if (recargando) { takeoverPendiente = true; return; }
     ultimoControladorSW = actual;
     try { sessionStorage.setItem(KP, "1"); } catch (_) {}
     _recargarSeguroVersion();
     vigilar();
-    if (enPantallaPIN()) intentar();
+    if (!puedeRecargarVersion()) revisar();
+    else if (enPantallaPIN()) intentar();
   }
   if (tieneSW) {
     navigator.serviceWorker.addEventListener("controllerchange", onShellTomado);
