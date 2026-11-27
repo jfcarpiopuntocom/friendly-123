@@ -29,7 +29,7 @@ const auto=app.slice(start,end)
  .replace("const pintado = await esperarPintadoSplash(splash);\n      if (!pintado || !documentoVisible() || !splashVisible(splash) ||\n          !seguro() || !pendiente() || !puedeRecargarVersion() ||","const pintado = await esperarPintadoSplash(splash);\n __e2trace('paint',{pintado,visible:documentoVisible(),splash:splashVisible(splash),safe:seguro(),pending:pendiente(),eligible:puedeRecargarVersion(),same:navigator.serviceWorker.controller===controlador,controller:controlador?.state,objetivo,target:localStorage.getItem('f123_version_vista')});\n      if (!pintado || !documentoVisible() || !splashVisible(splash) ||\n          !seguro() || !pendiente() || !puedeRecargarVersion() ||")
  .replace("function intentarOrescate() {","function intentarOrescate() {\n __e2trace('trigger',{pin:enPantallaPIN(),pending:pendiente()});")
  .replace("function fin(shell) {","function fin(shell) {\n __e2trace('shell-response',{shell,same:sw.controller===c,state:c.state});");
-const tracedAuto="window.__e2Trace=[]; function __e2trace(k,v){window.__e2Trace.push({k,v,t:performance.now()});if(window.__e2Trace.length>100)window.__e2Trace.shift();}\n"+auto;
+const tracedAuto="window.__e2Trace=[]; function __e2trace(k,v){console.log('E2TRACE '+JSON.stringify({k,v,t:performance.now()}));window.__e2Trace.push({k,v,t:performance.now()});if(window.__e2Trace.length>100)window.__e2Trace.shift();}\n"+auto;
 assert.match(safeReloadHelper,/sessionStorage\.setItem\("f123_reload_al_entrar", "1"\)/,
   "fixture must extract the actual deferred-reload helper, not stub it");
 function pageHtml(candidate) {
@@ -38,7 +38,7 @@ function pageHtml(candidate) {
   'sessionStorage.setItem("e2-loads",String(1+Number(sessionStorage.getItem("e2-loads")||0)));';
  return '<!doctype html><html><body><div id="app">E2 synthetic notebook</div>'+
   '<div id="oc-gate" style="display:none;position:fixed;inset:0;background:#0F1923;color:#fff">Enter PIN</div><script>'+
-  setup+'\n'+(candidate?safeReloadHelper+'\n'+reg+'\n'+auto:
+  setup+'\n'+(candidate?safeReloadHelper+'\n'+reg+'\n'+tracedAuto:
   'window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js",{updateViaCache:"none"}));')+
   '</script></body></html>';
 }
@@ -68,7 +68,7 @@ test("E2 "+browserName+": SW update NEVER navigates in-app; PIN screen adopts wi
   browser=await engine.launch({headless:true});
   const ctx=await browser.newContext(options);
   const pageErrors=[];
-  const collectPageErrors=p=>p.on("pageerror",e=>{pageErrors.push(e.message);console.log("E2 page error:",e.message);});
+  const collectPageErrors=p=>{p.on("pageerror",e=>{pageErrors.push(e.message);console.log("E2 page error:",e.message);});p.on('console',m=>{if(m.text().startsWith('E2TRACE '))console.log(m.text());});};
   let p=await ctx.newPage();
   collectPageErrors(p);
   ctx.on("serviceworker", w=>console.log("E2 worker:",w.url()));
