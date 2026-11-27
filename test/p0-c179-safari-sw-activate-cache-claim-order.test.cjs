@@ -9,7 +9,7 @@ const start=source.indexOf('self.addEventListener("activate",');
 const end=source.indexOf('self.addEventListener("fetch"',start);
 assert.ok(start>0&&end>start,'real production activate handler found');
 const code=source.slice(start,end);
-const flush=async()=>{for(let i=0;i<10;i++)await Promise.resolve();};
+const flush=async()=>{for(let i=0;i<30;i++)await Promise.resolve();};
 
 function fixture({failDelete=false}={}){
  let callback, resolveKeys,resolveClaim;
@@ -19,10 +19,10 @@ function fixture({failDelete=false}={}){
  let waitUntil,waitSettled=false,claims=0,notifications=0;
  const self={
    addEventListener(type,fn){if(type==='activate')callback=fn},
-   clients:{claim(){claims++;history.push('claim');return claimPromise}}
+   clients:{matchAll(){return Promise.resolve([])},claim(){claims++;history.push('claim');return claimPromise}}
  };
  const context={
-  self,Promise,
+  self,Promise,CANAL:'',
   CACHE_LOCAL:'f123-shell-v872-golden408',
   esDeMiCanal:n=>String(n).startsWith('f123-shell-')&&!String(n).endsWith('-next')&&!String(n).endsWith('-previo'),
   broadcastActualizacion(){notifications++;history.push('broadcast')},

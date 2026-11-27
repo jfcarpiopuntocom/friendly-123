@@ -380,7 +380,9 @@ self.addEventListener("install", (evento) => {
         if (sriEssentialFailures.size) throw new Error(
           "Integridad esencial inválida; preservar shell anterior: "+
             Array.from(sriEssentialFailures).join(","));
-        return self.skipWaiting();
+        // Capture the existing windows while the old controller is still active.
+        // Chromium may notify controllerchange before activate has finished.
+        return caches.keys().then(nombres => prepararShellPorDocumento(nombres, false)).then(() => self.skipWaiting());
       }).catch((e) => { try { console.warn("[SW] precache incompleto:", e && e.message); } catch (_) {} throw e; })
     );
   } catch (e) {
@@ -395,10 +397,9 @@ self.addEventListener("activate", (evento) => {
   try {
     evento.waitUntil(
       caches.keys()
-        .then((nombres) => Promise.all(nombres.filter((n) => esDeMiCanal(n) && n !== CACHE_LOCAL).map((n) => caches.delete(n))))
+        .then(prepararShellPorDocumento)
         .then(() => broadcastActualizacion())
-        // C179: take control only after old same-channel caches are retired.
-        // Await claim in the SAME extendable activation event (Safari WebKit).
+        // C179: persist document affinity before claiming clients; only retire unused shells.
         .then(() => self.clients.claim())
         .catch((e) => { try { console.warn("[SW] activate con errores:", e && e.message); } catch (_) {} })
     );
@@ -406,6 +407,103 @@ self.addEventListener("activate", (evento) => {
     try { console.warn("[SW] activate fallo por completo:", e && e.message); } catch (_) {}
   }
 });
+
+// A document outlives its controller. Persist affinity in CacheStorage, not SW RAM:
+// Safari may terminate/restart the worker between two requests from that document.
+function cacheDeAfinidad() { return "f123-shell-client-pins" + CANAL; }
+function claveDeDocumento(id) {
+  return new URL("./__f123_client_shell__/" + encodeURIComponent(id), self.registration.scope).href;
+}
+// No in-memory Map memoization: cross-worker writes or reloads must never read stale pins.
+async function leerShellDeDocumento(id) {
+  if (!id) return null;
+  const r = await (await caches.open(cacheDeAfinidad())).match(claveDeDocumento(id));
+  if (!r) return null;
+  const nombre = await r.text();
+  return nombre === "?" || esDeMiCanal(nombre) && /^f123-shell-v[0-9]+(?:-|$)/.test(nombre) ? nombre : "?";
+}
+async function fijarShellDeDocumento(id, nombre) {
+  if (!id) return;
+  await (await caches.open(cacheDeAfinidad())).put(claveDeDocumento(id), new Response(nombre));
+}
+const CABECERAS_SEGURIDAD = [
+  "content-type",
+  "content-security-policy",
+  "content-security-policy-report-only",
+  "x-content-type-options",
+  "content-encoding",
+  "cross-origin-opener-policy",
+  "cross-origin-embedder-policy",
+  "cross-origin-resource-policy",
+  "x-frame-options",
+  "referrer-policy",
+  "permissions-policy",
+  "service-worker-allowed",
+  "access-control-allow-origin"
+];
+function firmaSeguridad(res) {
+  return JSON.stringify([
+    res.status,
+    CABECERAS_SEGURIDAD.map((h) => [h, res.headers ? (res.headers.get(h) || "") : ""])
+  ]);
+}
+function shellPublicoDeCache(cacheName) {
+  return String(cacheName || "").replace(/-(?:next|previo)$/, "").replace(/-golden[0-9]+$/, "");
+}
+async function verificarEquivalenciaGeneraciones(generaciones, request, rel) {
+  const copias = await Promise.all(generaciones.map((cacheName) =>
+    caches.match(request, { cacheName, ignoreSearch: true })));
+  if (copias.some((c) => !c || !c.ok)) return null;
+  const firmaBase = firmaSeguridad(copias[0]);
+  if (!copias.every((c) => firmaSeguridad(c) === firmaBase)) return null;
+  const buffers = await Promise.all(copias.map((c) => c.clone().arrayBuffer()));
+  const primero = new Uint8Array(buffers[0]);
+  if (!buffers.every((b) => b.byteLength === primero.byteLength && new Uint8Array(b).every((v, i) => v === primero[i]))) {
+    return null;
+  }
+  const digest = await crypto.subtle.digest("SHA-256", buffers[0]);
+  const actual = "sha256-" + Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+  const manifiestos = await Promise.all(generaciones.map(async (cacheName) => {
+    const mRes = await caches.match("./version-manifest.json", { cacheName });
+    if (!mRes || !mRes.ok) return false;
+    const man = await mRes.json().catch(() => null);
+    if (!man || typeof man.shell !== "string" || !man.files) return false;
+    if (man.shell !== shellPublicoDeCache(cacheName)) return false;
+    return man.files[rel] === actual;
+  }));
+  return manifiestos.every(Boolean) ? copias[0] : null;
+}
+function clienteDeMiCanal(cliente) {
+  try {
+    const url = new URL(cliente.url), scope = new URL(self.registration.scope);
+    if (url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname)) return false;
+    return !/^(next|previo)\//.test(url.pathname.slice(scope.pathname.length));
+  } catch (_) { return false; }
+}
+async function prepararShellPorDocumento(nombres, retirar = true) {
+  const anteriores = nombres.filter(n => esDeMiCanal(n) && /^f123-shell-v[0-9]+(?:-|$)/.test(n) && n !== CACHE_LOCAL);
+  const clientes = (await self.clients.matchAll({ type: "window", includeUncontrolled: true })).filter(clienteDeMiCanal);
+  const conservar = new Set();
+  for (const cliente of clientes) {
+    let nombre = await leerShellDeDocumento(cliente.id);
+    if (nombre === null) {
+      // Upgrade from a legacy SW: a sole prior shell is the only available witness.
+      nombre = anteriores.length === 1 ? anteriores[0] : anteriores.length ? "?" : CACHE_LOCAL;
+      await fijarShellDeDocumento(cliente.id, nombre);
+    }
+    if (nombre === "?") anteriores.forEach(n => conservar.add(n));
+    else conservar.add(nombre);
+  }
+  // Installation must not delete caches still used by the previous active worker.
+  if (!retirar) return;
+  // Prune dead document pins without touching the business stores or other channels.
+  if (nombres.includes(cacheDeAfinidad())) {
+    const meta = await caches.open(cacheDeAfinidad());
+    const vivos = new Set(clientes.map(c => claveDeDocumento(c.id)));
+    for (const k of await meta.keys()) if (!vivos.has(k.url)) await meta.delete(k);
+  }
+  await Promise.all(anteriores.filter(n => !conservar.has(n)).map(n => caches.delete(n)));
+}
 
 self.addEventListener("fetch", (evento) => {
   try {
@@ -469,6 +567,88 @@ self.addEventListener("fetch", (evento) => {
       // Offline navigation still falls back to the certified cached index below.
       const esArchivoDelShell = evento.request.mode !== "navigate" && !url.search && SHELL.some((u) =>
         new URL(u, (self.registration && self.registration.scope) || self.location.href).pathname === url.pathname);
+      // A pre-takeover document must never receive executable bytes from a different release.
+      const scope = new URL(self.registration.scope);
+      const enScope = url.pathname.startsWith(scope.pathname) &&
+        !/^(next|previo)\//.test(url.pathname.slice(scope.pathname.length));
+      const recursoVersionado = enScope && (esArchivoDelShell ||
+        /\.(?:m?js|css|wasm)$/i.test(url.pathname) ||
+        SHELL.some(u => new URL(u, scope).pathname === url.pathname));
+      if (evento.request.mode !== "navigate" && recursoVersionado) {
+        evento.respondWith((async () => {
+          const rel = "./" + url.pathname.slice(scope.pathname.length);
+          const nombre = evento.clientId ? await leerShellDeDocumento(evento.clientId) : null;
+          if (nombre && nombre !== CACHE_LOCAL) {
+            if (nombre === "?") return respuestaOffline();
+            // Ignore query only for the static release resources; never fetch a
+            // missing old script from today's deployment or search a different cache.
+            const anterior = await caches.match(evento.request, { cacheName: nombre, ignoreSearch: true });
+            return anterior ? limpiarRedireccion(anterior) : respuestaOffline();
+          }
+          if (nombre === null) {
+            // An unpinned request (including missing clientId for workers/preloads) during a
+            // mixed-release transition is served only if all active generations prove equal
+            // bytes, equal security headers, and authentic matching version-manifest.json SRI.
+            const anteriores = (await caches.keys()).filter(n => esDeMiCanal(n) &&
+              /^f123-shell-v[0-9]+(?:-|$)/.test(n) && n !== CACHE_LOCAL);
+            if (anteriores.length) {
+              const equivalente = await verificarEquivalenciaGeneraciones([CACHE_LOCAL, ...anteriores], evento.request, rel);
+              return equivalente ? limpiarRedireccion(equivalente) : respuestaOffline();
+            }
+          }
+          const local = await abrirCacheLocal().then(c => c.match(evento.request, { ignoreSearch: true })).catch(() => null);
+          if (local) return limpiarRedireccion(local);
+          // Cache miss: an executable from a newer deployment is not a repair.
+          const manifest = await caches.match("./version-manifest.json", { cacheName: CACHE_LOCAL });
+          const man = manifest && await manifest.json();
+          const esperado = man && man.shell === CACHE && man.files && man.files[rel];
+          if (typeof esperado !== "string" || !esperado.startsWith("sha256-")) return respuestaOffline();
+          const fresca = await fetch(evento.request, { cache: "no-cache" });
+          if (!fresca || !fresca.ok) return respuestaOffline();
+          const hash = await crypto.subtle.digest("SHA-256", await fresca.clone().arrayBuffer());
+          const actual = "sha256-" + Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2,"0")).join("");
+          return actual === esperado ? limpiarRedireccion(guardar(fresca)) : respuestaOffline();
+        })().catch(() => respuestaOffline()));
+        return;
+      }
+      // Network-revalidate navigations, but do not bind new HTML to an older
+      // controller's asset cache. Prefer the installed entry if bytes differ.
+      if (evento.request.mode === "navigate" && enScope) {
+        const rel = url.pathname.slice(scope.pathname.length);
+        const entrada = rel === "" ? "./index.html" : rel === "dashboard" ? "./dashboard.html" : "./" + rel;
+        if (SHELL.includes(entrada) && /\.html$/.test(entrada)) {
+          evento.respondWith((async () => {
+            const cache = await abrirCacheLocal();
+            const local = await cache.match(entrada);
+            let timer;
+            const abort = new AbortController();
+            const fresca = await Promise.race([
+              (async () => {
+                try {
+                  const r = await fetch(evento.request, { cache: "no-cache", signal: abort.signal });
+                  if (!local || !r || !r.ok) return null;
+                  const [a,b] = await Promise.all([local.clone().arrayBuffer(), r.clone().arrayBuffer()]);
+                  const [ha,hb] = await Promise.all([crypto.subtle.digest("SHA-256",a),crypto.subtle.digest("SHA-256",b)]);
+                  return new Uint8Array(ha).every((v,i)=>v===new Uint8Array(hb)[i]) ? r : null;
+                } catch (_) { return null; }
+              })(),
+              new Promise(resolve => { timer = setTimeout(() => { abort.abort(); resolve(null); }, 3000); })
+            ]).finally(() => clearTimeout(timer));
+            if (fresca) {
+              await fijarShellDeDocumento(evento.resultingClientId, CACHE_LOCAL);
+              return limpiarRedireccion(fresca);
+            }
+            if (local) {
+              await fijarShellDeDocumento(evento.resultingClientId, CACHE_LOCAL);
+              return limpiarRedireccion(local);
+            }
+            // No certified cached entry: do not attach arbitrary network HTML
+            // to this release's executable assets. Standalone recovery remains outside SHELL.
+            return respuestaOffline();
+          })().catch(() => respuestaOffline()));
+          return;
+        }
+      }
       if (esArchivoDelShell) {
         // This cache belongs to the active release. Its installed bytes can serve
         // locally; version.json and the SW updater still discover new releases.

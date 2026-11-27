@@ -557,7 +557,8 @@ const _ocActSolaOn = true;
     try { sessionStorage.setItem(KP, "1"); } catch (_) {}
     _recargarSeguroVersion();
     vigilar();
-    if (enPantallaPIN()) intentar();
+    if (!puedeRecargarVersion()) revisar();
+    else if (enPantallaPIN()) intentar();
   }
   if (tieneSW) {
     navigator.serviceWorker.addEventListener("controllerchange", onShellTomado);
