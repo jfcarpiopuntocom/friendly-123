@@ -320,6 +320,14 @@ const _ocActSolaOn = true;
   // KA prevents same-shell navigation loops; later new shells remain eligible.
   function rescatePendiente() { try { return sessionStorage.getItem(KR) === "1"; } catch (_) { return false; } }
   let recargando = false;
+  let takeoverPendiente = false;
+  function terminarIntento(navegando) {
+    recargando = false;
+    if (takeoverPendiente) {
+      takeoverPendiente = false;
+      if (!navegando) Promise.resolve().then(onShellTomado);
+    }
+  }
   function mostrarSplashActualizando() {
     try {
       if (!enPantallaPIN() || !documentoVisible()) return null;
@@ -401,7 +409,7 @@ const _ocActSolaOn = true;
     } catch (_) { return false; }
     finally {
       if (!navegando && splash && splash.remove) splash.remove();
-      recargando = false;
+      terminarIntento(navegando);
     }
   }
   try { window.__f123RecargarEnSplash = recargarEnSplash; } catch (_) {}
@@ -451,7 +459,7 @@ const _ocActSolaOn = true;
     } catch (_) { return false; }
     finally {
       if (!navegando && splash && splash.remove) splash.remove();
-      recargando = false;
+      terminarIntento(navegando);
     }
   }
   function shellDelSW() {
@@ -572,6 +580,22 @@ const _ocActSolaOn = true;
     var actual = navigator.serviceWorker.controller;
     if (!ultimoControladorSW) { ultimoControladorSW = actual; return; }
     if (!actual || actual === ultimoControladorSW) return;
+    // controllerchange can precede the end of activation. Do not consume the
+    // takeover until the same controller can answer the certified identity.
+    if (actual.state !== "activated") {
+      if (actual.state !== "redundant" && typeof actual.addEventListener === "function" && !actual._ocActivationAdoptionWired) {
+        actual._ocActivationAdoptionWired = true;
+        const alActivar = function () {
+          if (actual.state !== "activated" && actual.state !== "redundant") return;
+          actual.removeEventListener("statechange", alActivar);
+          if (actual.state === "activated" && navigator.serviceWorker.controller === actual) onShellTomado();
+        };
+        actual.addEventListener("statechange", alActivar);
+        alActivar();
+      }
+      return;
+    }
+    if (recargando) { takeoverPendiente = true; return; }
     ultimoControladorSW = actual;
     try { sessionStorage.setItem(KP, "1"); } catch (_) {}
     _recargarSeguroVersion();
