@@ -572,6 +572,21 @@ const _ocActSolaOn = true;
     var actual = navigator.serviceWorker.controller;
     if (!ultimoControladorSW) { ultimoControladorSW = actual; return; }
     if (!actual || actual === ultimoControladorSW) return;
+    // controllerchange can precede the end of activation. Do not consume the
+    // takeover until the same controller can answer the certified identity.
+    if (actual.state !== "activated") {
+      if (actual.state !== "redundant" && typeof actual.addEventListener === "function" && !actual._ocActivationAdoptionWired) {
+        actual._ocActivationAdoptionWired = true;
+        const alActivar = function () {
+          if (actual.state !== "activated" && actual.state !== "redundant") return;
+          actual.removeEventListener("statechange", alActivar);
+          if (actual.state === "activated" && navigator.serviceWorker.controller === actual) onShellTomado();
+        };
+        actual.addEventListener("statechange", alActivar);
+        alActivar();
+      }
+      return;
+    }
     ultimoControladorSW = actual;
     try { sessionStorage.setItem(KP, "1"); } catch (_) {}
     _recargarSeguroVersion();
