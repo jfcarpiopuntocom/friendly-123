@@ -45,8 +45,8 @@ jobs:
           node scripts/gen-manifest.js
           bash check-sw.sh
           git diff --check
-      - name: Native PIN and SW tests without removing assertions
-        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/p0-pin-activation-adoption.test.cjs test/p0-c209-reengage-lifecycle.test.cjs test/p0-sw-identity-protocol.test.cjs test/p0-c180-version-adoption.test.cjs test/e2-sw-real-browser.test.cjs test/p0-sw-document-affinity.test.cjs
+      - name: Native PIN protocol and E2 without removing assertions
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/p0-pin-activation-adoption.test.cjs test/p0-c209-reengage-lifecycle.test.cjs test/p0-sw-identity-protocol.test.cjs test/p0-c180-version-adoption.test.cjs test/e2-sw-real-browser.test.cjs
       - name: Seal generated assets only on this branch
         run: |
           set -euo pipefail
@@ -57,3 +57,46 @@ jobs:
             git commit -m "build(v936): seal PIN activation adoption"
             git push origin HEAD:refs/heads/fix/v936-activation-pin-race-20261127
           fi
+
+  affinity-diagnostic:
+    if: github.ref == 'refs/heads/fix/v936-activation-pin-race-20261127'
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: A/B native affinity diagnostic - original versus in-page reload
+        run: |
+          set -u
+          export NODE_OPTIONS="--require ./test/helpers/sin-red-produccion.cjs"
+          set +e
+          node --test --test-timeout=120000 test/p0-sw-document-affinity.test.cjs > /tmp/aff-original.log 2>&1
+          original=$?
+          cat /tmp/aff-original.log
+          node <<'NODE'
+          const fs=require('node:fs');
+          const p='test/p0-sw-document-affinity.test.cjs';
+          const src=fs.readFileSync(p,'utf8');
+          const helper="const reloadByPage=async p=>{await Promise.all([p.waitForEvent('framenavigated',{predicate:f=>f===p.mainFrame(),timeout:30000}),p.evaluate(()=>{setTimeout(()=>location.reload(),0)})]);await p.waitForLoadState('load',{timeout:30000});};";
+          const marker="const update=async(page)=>page.evaluate(async()=>{const r=await navigator.serviceWorker.getRegistration();await r.update()});";
+          if(!src.includes(marker)||!src.includes('await b.reload()'))throw Error('fixture changed');
+          let patched=src.replace(marker,marker+'\n '+helper).replaceAll('await a.reload()','await reloadByPage(a)').replaceAll('await b.reload()','await reloadByPage(b)');
+          fs.writeFileSync(p,patched);
+          NODE
+          node --test --test-timeout=120000 test/p0-sw-document-affinity.test.cjs > /tmp/aff-page.log 2>&1
+          page=$?
+          cat /tmp/aff-page.log
+          git restore test/p0-sw-document-affinity.test.cjs
+          echo "ORIGINAL_EXIT=$original PAGE_RELOAD_EXIT=$page"
+          if [ "$original" -ne 0 ] || [ "$page" -ne 0 ]; then exit 1; fi
