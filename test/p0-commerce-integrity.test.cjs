@@ -190,3 +190,31 @@ test('dashboard: exporta hechos financieros sin derivar saldos propios (accion 2
   // docs/dashboard.html carga el mismo ledger de solo lectura; la paridad de bytes la fija build-dashboard-entry --check.
   assert.ok(read('docs/dashboard.html').includes('core/hechos-chain-readonly.js'));
 });
+
+
+test('historical restored debt: select a unique live branch, never resurrect cancelled siblings', () => {
+  const root = fiadoSale('old', { anulada: true, info: { formaPago: 'fiado', fiadoAtomico: false } });
+  const restore = (id, parent, anulada = false) => fiadoSale(id, {
+    restauracionDe: parent, anulada, info: { formaPago: 'fiado', fiadoAtomico: false }
+  });
+  const charge = fact('c', 'cartera_cargo', 108, 'historical-charge', T0, { ventaId: 'old' });
+  const cases = [
+    [[root, restore('dead', 'old', true), restore('live', 'old')], -108, false],
+    [[root, restore('dead', 'old', true), restore('mid', 'old', true), restore('live', 'mid')], -108, false],
+    [[root, restore('mid', 'old', true), restore('deep', 'mid'), restore('live', 'old')], 0, true],
+    [[root, restore('mid', 'old', true), restore('live', 'mid')], -108, false],
+    [[root, restore('d1', 'old', true), restore('d2', 'old', true)], 0, false],
+    [[{ ...root, restauracionDe: 'mid' }, restore('mid', 'old', true)], 0, true],
+    [[root, restore('a', 'old'), restore('b', 'old')], 0, true]
+  ];
+  for (const [sales, expected, conflict] of cases) {
+    for (const order of [sales, sales.slice().reverse()]) {
+      const before = JSON.stringify([charge, order]);
+      const projection = cartera.calcularSaldo([charge], 'syn', order);
+      assert.equal(projection.saldo, expected);
+      assert.equal(Boolean(projection.conflictosIdentidadExperimental), conflict);
+      assert.equal(JSON.stringify([charge, order]), before);
+      if (expected === -108) assert.equal(projection.movimientos.find(m => m.id === 'c').monto, 108);
+    }
+  }
+});
