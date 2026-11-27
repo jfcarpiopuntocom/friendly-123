@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.35",
+  "version": "v0.9.36",
   "fecha": "2026-11-27",
-  "changelog": "v0.9.35: una transacción de hechos abortada libera la cola de escrituras para permitir recuperar la operación original.",
+  "changelog": "v0.9.36: integridad comercial cartera/hechos/estados UI, coherencia de Service Worker y PIN, y directorio plegable lazy en comisiones.",
   "requerida": false,
-  "shell": "f123-shell-v935",
+  "shell": "f123-shell-v936",
   "apagar": [],
-  "releaseName": "v0.9.35",
-  "cacheGeneration": "golden473"
+  "releaseName": "v0.9.36",
+  "cacheGeneration": "golden474"
 }
