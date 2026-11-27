@@ -6116,7 +6116,7 @@ async function renderGestionPromotoras(){
     proveedoresConsig = [...nombres].sort((a,b) => a.localeCompare(b));
   } catch (_) { proveedoresConsig = []; }
   const anterior = box.querySelector("[data-comm-directory-fold]");
-  const abierto = !anterior || anterior.open;
+  const abierto = !!(anterior && anterior.open);
   const buscarAnterior = box.querySelector("#promBuscar");
   const queryAnterior = buscarAnterior ? buscarAnterior.value : "";
   box.innerHTML = `
