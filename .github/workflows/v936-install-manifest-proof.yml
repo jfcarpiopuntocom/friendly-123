@@ -1,0 +1,45 @@
+name: v936 install manifest proof (isolated)
+on:
+  push:
+    branches: [fix/v936-install-manifest-proof-20261127]
+    paths: ['docs/sw.js', 'test/p0-sw-install-manifest.test.cjs', '.github/workflows/v936-install-manifest-proof.yml']
+permissions:
+  contents: read
+jobs:
+  proof:
+    if: github.ref == 'refs/heads/fix/v936-install-manifest-proof-20261127'
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 8
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: RED on exact release source, GREEN on candidate
+        run: |
+          set -euo pipefail
+          git show 0e80341379441c6de90c0a22391d1c7d0bf45e2a:docs/sw.js > /tmp/sw-red.js
+          if F123_SW_SOURCE=/tmp/sw-red.js node --test test/p0-sw-install-manifest.test.cjs > /tmp/red.log 2>&1; then cat /tmp/red.log; exit 1; fi
+          cat /tmp/red.log
+          grep -F 'install manifest contract: wrong-shell' /tmp/red.log
+          grep -F 'install manifest contract: missing-digest' /tmp/red.log
+          node --test test/p0-sw-install-manifest.test.cjs
+      - name: Canonical build and hash verification
+        run: |
+          set -euo pipefail
+          node scripts/build-app-entry.cjs --check
+          node scripts/build-dashboard-entry.cjs --check
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          git diff --exit-code
+      - name: Existing SW safety tests without altered gates
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/p0-sw-install-manifest.test.cjs test/sw-install-durable-4d.test.cjs test/p0-c98-sw-binary-sri.test.cjs test/p0-c179-safari-sw-activate-cache-claim-order.test.cjs test/p0-sw-coherence-block2.test.cjs test/p0-sw-document-affinity.test.cjs test/e2-sw-real-browser.test.cjs
