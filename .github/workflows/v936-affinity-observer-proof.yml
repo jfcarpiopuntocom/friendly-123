@@ -1,0 +1,28 @@
+name: v936 affinity observer-order diagnostic (isolated)
+on:
+  push:
+    branches: [fix/v936-affinity-observer-order-20261127]
+    paths: ['test/p0-sw-document-affinity.test.cjs', '.github/workflows/v936-affinity-observer-proof.yml']
+permissions:
+  contents: read
+jobs:
+  trace:
+    if: github.ref == 'refs/heads/fix/v936-affinity-observer-order-20261127'
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 6
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Native affinity with first-listener instrumentation and unchanged assertions
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=120000 test/p0-sw-document-affinity.test.cjs
