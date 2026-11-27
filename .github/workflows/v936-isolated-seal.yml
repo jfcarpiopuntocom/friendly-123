@@ -2,7 +2,7 @@ name: Isolated v936 candidate seal (no deploy)
 on:
   push:
     branches: [fix/v936-restore-tree-proof-20261127]
-    paths: ['docs/cartera.js', 'docs/plan-pagos-ui.js', 'src/pago-intento-idb.mjs', 'test/p0-commerce-integrity.test.cjs', '.github/workflows/v936-isolated-seal.yml']
+    paths: ['src/app/app-inline-03.js', 'test/p0-sw-identity-protocol.test.cjs', 'docs/cartera.js', 'docs/plan-pagos-ui.js', 'src/pago-intento-idb.mjs', 'test/p0-commerce-integrity.test.cjs', '.github/workflows/v936-isolated-seal.yml']
 permissions:
   contents: write
 jobs:
@@ -38,13 +38,15 @@ jobs:
           git diff --check
       - name: Native browser and ledger generation regressions
         run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/p0-belen-payment-intent-idb.test.cjs test/p0-belen-idb-live-payment.test.cjs test/p0-belen-idb-live-browser.test.cjs
+      - name: PIN protocol and real browser takeover regressions
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/p0-sw-identity-protocol.test.cjs test/p0-c180-version-adoption.test.cjs test/e2-sw-real-browser.test.cjs test/p0-sw-document-affinity.test.cjs
       - name: Seal only the isolated branch
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/cartera.min.js docs/plan-pagos-ui.min.js docs/version-manifest.json
+          git add docs/app-inline-03.min.js docs/cartera.min.js docs/plan-pagos-ui.min.js docs/version-manifest.json
           if ! git diff --cached --quiet; then
-            git commit -m "build(v936): seal durable payment generation"
+            git commit -m "build(v936): seal PIN identity protocol"
             git push origin HEAD:refs/heads/fix/v936-restore-tree-proof-20261127
           fi
