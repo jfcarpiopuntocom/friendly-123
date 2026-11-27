@@ -1,6 +1,7 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),http=require('node:http'),{execFileSync}=require('node:child_process');
 const {chromium,webkit}=require('playwright');
+const {waitResolved}=require('./helpers/wait-resolved.cjs');
 const production=fs.readFileSync('docs/sw.js','utf8');
 const legacy=execFileSync('git',['show','89551cc07db38e0eaa8c8f690f17720c3097ab1f:docs/sw.js'],{encoding:'utf8'});
 const narrow=src=>src.replace(/const SHELL = \[[\s\S]*?\n\];/,'const SHELL = ["./index.html","./late.js"];');
@@ -21,13 +22,13 @@ async function diagnostic(page){
 }
 
 async function identity(page,expected) {
- await page.waitForFunction(wanted=>new Promise(resolve=>{
+ await waitResolved(page,wanted=>new Promise(resolve=>{
   // A reply during activation is not proof that fetches are controlled yet.
   const c=navigator.serviceWorker.controller;if(!c||c.state!=='activated')return resolve(false);
   const ch=new MessageChannel(),timer=setTimeout(()=>{ch.port1.close();resolve(false)},1500);
   ch.port1.onmessage=e=>{clearTimeout(timer);ch.port1.close();resolve(navigator.serviceWorker.controller===c&&c.state==='activated'&&e.data?.shell===wanted)};
   c.postMessage({tipo:'que-shell'},[ch.port2]);
- }),expected,{timeout:30000});
+ }),expected,{timeout:30000,label:'activated controller '+expected});
 }
 for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]])test('SW document affinity '+name+': old document, late asset, two takeovers, PIN navigation and other channel',{timeout:120000},async()=>{
  let stage=0;

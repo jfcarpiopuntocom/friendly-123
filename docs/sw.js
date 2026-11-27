@@ -275,8 +275,9 @@ self.addEventListener("install", (evento) => {
   // C176: preserve prior offline shell if an ESSENTIAL asset still fails SRI.
   // Optional resources remain best-effort, never erase old offline caches.
   const sriEssentialFailures = new Set();
+  const exigeManifest = SHELL.includes("./version-manifest.json");
   const sriEssential = (rel) =>
-    ["./index.html","./aislamiento.js","./estado-ab.min.js","./estado-idb.min.js",
+    ["./index.html","./dashboard.html","./aislamiento.js","./estado-ab.min.js","./estado-idb.min.js",
       "./mock-backend.min.js","./auth-ui.min.js","./peer-sync.min.js","./sync-yjs.min.js",
       "./core/commission-history.js"].includes(rel) ||
     /^\.\/(?:app-|dashboard-).*\.min\.(?:js|css)$/.test(rel);
@@ -311,7 +312,7 @@ self.addEventListener("install", (evento) => {
         for (let i = 0; i < (iosMemoryGuard ? 1 : 3) && i < SHELL.length; i++) corredores.push(precargarUno());
         return Promise.all(corredores).then(() => resultados);
       }).then((resultados) => {
-        const esenciales = new Set(["./index.html", "./aislamiento.js", "./estado-ab.min.js", "./estado-idb.min.js", "./mock-backend.min.js", "./auth-ui.min.js", "./peer-sync.min.js", "./sync-yjs.min.js", "./version-manifest.json"]);
+        const esenciales = new Set(["./index.html", "./dashboard.html", "./aislamiento.js", "./estado-ab.min.js", "./estado-idb.min.js", "./mock-backend.min.js", "./auth-ui.min.js", "./peer-sync.min.js", "./sync-yjs.min.js", "./version-manifest.json"]);
         SHELL.filter(u => /^\.\/(?:app-|dashboard-).*\.min\.(?:js|css)$/.test(u)).forEach(u => esenciales.add(u));
         if (resultados.some((r, i) => esenciales.has(SHELL[i]) && r.status === "rejected")) throw new Error("Precarga de arranque incompleta; preservar shell anterior");
       }).then(() => {
@@ -323,9 +324,20 @@ self.addEventListener("install", (evento) => {
            por archivo (no aborta el precache). */
         try {
           return caches.open(CACHE_LOCAL).then((cache) => cache.match("./version-manifest.json").then((res) => {
-            if (!res) return;
+            if (!res || (exigeManifest && !res.ok)) {
+              if (exigeManifest) throw new Error("Manifiesto de arranque ausente o ilegible");
+              return;
+            }
             return res.json().then((man) => {
-              if (!man || !man.files) return;
+              if (!man || !man.files || typeof man.files !== "object" || Array.isArray(man.files) || (exigeManifest && man.shell !== CACHE)) {
+                if (exigeManifest) throw new Error("Manifiesto de arranque incompatible");
+                return;
+              }
+              if (exigeManifest) {
+                for (const rel of SHELL.filter(sriEssential)) {
+                  if (!/^sha256-[0-9a-f]{64}$/.test(man.files[rel])) sriEssentialFailures.add(rel);
+                }
+              }
               const readBytes = (resp) => (typeof resp.arrayBuffer === "function"
                 ? resp.arrayBuffer()
                 : resp.text().then((txt) => new TextEncoder().encode(txt)));
@@ -373,9 +385,9 @@ self.addEventListener("install", (evento) => {
               const workers = [];
               for (let w = 0; w < (iosMemoryGuard ? 1 : 4) && w < pendientes.length; w++) workers.push(correrLote());
               return Promise.allSettled(workers).catch(() => {});
-            }).catch(() => {});
-          })).catch(() => {});
-        } catch (_) {}
+            });
+          })).catch((e) => { if (exigeManifest) throw e; });
+        } catch (e) { if (exigeManifest) throw e; }
       }).then(() => {
         if (sriEssentialFailures.size) throw new Error(
           "Integridad esencial inválida; preservar shell anterior: "+

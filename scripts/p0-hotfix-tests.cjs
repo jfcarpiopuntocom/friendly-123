@@ -29,6 +29,7 @@ const MANDATORY=[
   'test/p0-pin-activation-adoption.test.cjs', // queued takeover during activation and old identity query
   'test/e2-sw-real-browser.test.cjs', // native Chromium/WebKit, PIN-only adoption
   'test/p0-sw-document-affinity.test.cjs', // no mixed assets across controller takeovers
+  'test/p0-sw-install-manifest.test.cjs', // reject corrupt or incomplete release identity before activation
   'test/v448-golden-generation.test.js', // cache generation and channel isolation
   'test/p0-commission-month-guard.test.cjs', // past own/counter month and per-product summary
   'test/p0-commission-retro-zero-split.test.cjs', // recorded historical adjustments, no invented facts
