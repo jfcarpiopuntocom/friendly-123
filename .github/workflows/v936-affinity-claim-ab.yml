@@ -1,0 +1,46 @@
+name: v936 affinity claim A-B (isolated)
+on:
+  push:
+    branches: [fix/v936-affinity-claim-ab-20261127]
+    paths: ['test/p0-sw-document-affinity.test.cjs', '.github/workflows/v936-affinity-claim-ab.yml']
+permissions:
+  contents: read
+jobs:
+  trial:
+    if: github.ref == 'refs/heads/fix/v936-affinity-claim-ab-20261127'
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [control, no-upgrade-claim]
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Three independent native trials, unchanged affinity assertions
+        env:
+          F123_AFFINITY_VARIANT: ${{ matrix.variant }}
+        run: |
+          failures=0
+          for i in 1 2 3; do
+            echo "TRIAL $i $F123_AFFINITY_VARIANT"
+            if node --require ./test/helpers/sin-red-produccion.cjs --test --test-name-pattern="SW document affinity" --test-timeout=120000 test/p0-sw-document-affinity.test.cjs; then
+              echo "TRIAL PASS $i"
+            else
+              echo "TRIAL FAIL $i"
+              failures=$((failures+1))
+            fi
+          done
+          echo "TOTAL FAILED TRIALS $failures"
+          test "$failures" -eq 0

@@ -4,7 +4,15 @@ const {chromium,webkit}=require('playwright');
 const production=fs.readFileSync('docs/sw.js','utf8');
 const legacy=execFileSync('git',['show','89551cc07db38e0eaa8c8f690f17720c3097ab1f:docs/sw.js'],{encoding:'utf8'});
 const narrow=src=>src.replace(/const SHELL = \[[\s\S]*?\n\];/,'const SHELL = ["./index.html","./late.js"];');
-const current=narrow(production),old=narrow(legacy);
+const variant=process.env.F123_AFFINITY_VARIANT||'control';
+assert.ok(['control','no-upgrade-claim'].includes(variant),variant);
+const upgrade=src=>{
+ if(variant==='control')return src;
+ const needle='.then(() => self.clients.claim())';
+ assert.equal(src.split(needle).length,2,'exactly one activation claim site');
+ return src.replace(needle,'.then(() => undefined /* experiment: controlled clients adopt via skipWaiting */)');
+};
+const current=narrow(upgrade(production)),old=narrow(legacy);
 const shell=src=>/^const CACHE = "([^"]+)";/m.exec(src)[1];
 const generation=src=>/^const CACHE_GENERACION = "([^"]+)";/m.exec(src)[1];
 const nextShell='f123-shell-v'+(Number(shell(current).split('v').pop())+1);
@@ -47,10 +55,18 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]])test('SW do
  });
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  const url='http://127.0.0.1:'+server.address().port+'/app/index.html';let browser;
- const read=async(page,file='late.js')=>page.evaluate(async f=>{const r=await fetch('./'+f);return [r.status,await r.text()]},file);
+ const read=async(page,file='late.js')=>{
+ const result=await page.evaluate(async f=>{
+  const snap=()=>{const c=navigator.serviceWorker.controller;return {state:c?.state||null,url:c?.scriptURL||null,t:performance.now()}};
+  const before=snap(),r=await fetch('./'+f),afterHeaders=snap(),body=await r.text(),afterBody=snap();
+  return {value:[r.status,body],before,afterHeaders,afterBody,events:window.__affControllerEvents||[],timing:performance.getEntriesByName(new URL('./'+f,location.href).href).slice(-1).map(x=>({workerStart:x.workerStart,fetchStart:x.fetchStart,responseStart:x.responseStart,transferSize:x.transferSize}))};
+ },file);
+ console.log('AFF request state',variant,name,file,JSON.stringify(result));
+ return result.value;
+};
  const update=async(page)=>page.evaluate(async()=>{const r=await navigator.serviceWorker.getRegistration();await r.update()});
  try{
-  browser=await engine.launch({headless:true});const ctx=await browser.newContext({serviceWorkers:'allow'});
+  browser=await engine.launch({headless:true});const ctx=await browser.newContext({serviceWorkers:'allow'});await ctx.addInitScript(()=>{window.__affControllerEvents=[];const record=()=>{const c=navigator.serviceWorker.controller;window.__affControllerEvents.push({t:performance.now(),state:c?.state||null,url:c?.scriptURL||null});};record();navigator.serviceWorker.addEventListener('controllerchange',record);});
   const a=await ctx.newPage();a.on('console',m=>console.log('AFF A',m.text()));a.on('requestfailed',r=>console.log('AFF A failure',r.url(),r.failure()));await a.goto(url);await identity(a,shell(old));
   await a.reload();await identity(a,shell(old));
   const b=await ctx.newPage();b.on('console',m=>console.log('AFF B',m.text()));b.on('requestfailed',r=>console.log('AFF B failure',r.url(),r.failure()));await b.goto(url);await identity(b,shell(old));
