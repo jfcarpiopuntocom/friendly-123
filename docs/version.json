@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.33",
+  "version": "v0.9.34",
   "fecha": "2026-11-27",
-  "changelog": "v0.9.33: directorio de asociados y consignadores plegable, con búsqueda y estado preservados.",
+  "changelog": "v0.9.34: flecha negra visible y plegado independiente del directorio de asociados y consignadores.",
   "requerida": false,
-  "shell": "f123-shell-v933",
+  "shell": "f123-shell-v934",
   "apagar": [],
-  "releaseName": "v0.9.33",
-  "cacheGeneration": "golden471"
+  "releaseName": "v0.9.34",
+  "cacheGeneration": "golden472"
 }
