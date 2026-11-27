@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.34",
+  "version": "v0.9.35",
   "fecha": "2026-11-27",
-  "changelog": "v0.9.34: una transacción de hechos abortada libera la cola de escrituras para permitir recuperar la operación original.",
+  "changelog": "v0.9.35: una transacción de hechos abortada libera la cola de escrituras para permitir recuperar la operación original.",
   "requerida": false,
-  "shell": "f123-shell-v934",
+  "shell": "f123-shell-v935",
   "apagar": [],
-  "releaseName": "v0.9.34",
-  "cacheGeneration": "golden472"
+  "releaseName": "v0.9.35",
+  "cacheGeneration": "golden473"
 }
