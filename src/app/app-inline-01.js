@@ -6168,10 +6168,24 @@ async function renderGestionPromotoras(){
   window.OCPromotorasCache = _promotorasVivasCache;
   const buscarPromEl = document.getElementById("promBuscar");
   if (buscarPromEl) buscarPromEl.value = queryAnterior;
-  renderListaPromotorasViva(queryAnterior);
+  const directorio = box.querySelector("[data-comm-directory-fold]");
+  let pintado = false;
+  const pintar = () => {
+    renderListaPromotorasViva(buscarPromEl ? buscarPromEl.value : "");
+    pintado = true;
+  };
+  if (!directorio || directorio.open || queryAnterior) pintar();
+  if (directorio && typeof directorio.addEventListener === "function") {
+    directorio.addEventListener("toggle", () => {
+      if (directorio.open && !pintado && (directorio.isConnected ?? true)) pintar();
+    });
+  }
   if (buscarPromEl && !buscarPromEl.dataset.listo) {
     buscarPromEl.dataset.listo = "1";
-    buscarPromEl.addEventListener("input", () => renderListaPromotorasViva(buscarPromEl.value));
+    buscarPromEl.addEventListener("input", () => {
+      if (directorio && !directorio.open) directorio.open = true;
+      pintar();
+    });
   }
   const inputTexto = document.getElementById("promNombre");
   const selectNombre = document.getElementById("promNombreSelect");
