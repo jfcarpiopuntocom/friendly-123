@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.32",
-  "fecha": "2026-11-25",
-  "changelog": "v0.9.32: informes de comisiones leen ajustes retroactivos registrados sin duplicar saldos.",
+  "version": "v0.9.33",
+  "fecha": "2026-11-27",
+  "changelog": "v0.9.33: directorio de asociados y consignadores plegable, con búsqueda y estado preservados.",
   "requerida": false,
-  "shell": "f123-shell-v932",
+  "shell": "f123-shell-v933",
   "apagar": [],
-  "releaseName": "v0.9.32",
-  "cacheGeneration": "golden470"
+  "releaseName": "v0.9.33",
+  "cacheGeneration": "golden471"
 }
