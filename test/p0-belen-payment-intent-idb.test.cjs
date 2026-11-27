@@ -76,3 +76,15 @@ test('published offline IDB ESM is the reviewed source and matches the versioned
   assert.equal(manifest.files['./pago-intento-idb.mjs'],'sha256-'+crypto.createHash('sha256').update(shipped).digest('hex'));
   assert.match(sw,/"\.\/pago-intento-idb\.mjs"/,'new module must be in the offline PWA precache list');
 });
+
+test('stale empty observation after ACK is not a fresh payment generation',async()=>{
+ const db=new IDBFactory(),a=await setup(db),b=await setup(db),key={kind:'payment',clientId:'generation-client'};
+ const stale=await b.observe(key);
+ assert.equal(stale.value,null);
+ await a.putIfAbsent({...key,value:info('first'),expectedGeneration:stale.generation});
+ await a.removeIfOp({...key,expectedOpId:'customer-payment:first'});
+ await assert.rejects(b.putIfAbsent({...key,value:info('stale'),expectedGeneration:stale.generation}),/conflict/i);
+ const fresh=await b.observe(key);
+ assert.equal(fresh.value,null);assert.notEqual(fresh.generation,stale.generation);
+ assert.equal((await b.putIfAbsent({...key,value:info('second'),expectedGeneration:fresh.generation})).created,true);
+});

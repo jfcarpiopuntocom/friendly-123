@@ -64,7 +64,31 @@ export function createPaymentIntentStore({indexedDB,namespace}={}){
       });
     }finally{db.close();}
   }
+  // A separate generation record preserves the existing intent schema so old
+  // readers can still see a missing intent after an acknowledged payment.
+  function generationKey(k){return k+':generation';}
+  function generationOf(row){
+    if(!row)return 0;
+    if(!Number.isSafeInteger(row.generation)||row.generation<0)
+      throw new Error('Invalid payment intent generation');
+    return row.generation;
+  }
   const api={
+    async observe(params){
+      const k=key(params);
+      return transact('readonly',(store,result,fail)=>{
+        const req=store.get(k);
+        req.onsuccess=()=>{
+          const gen=store.get(generationKey(k));
+          gen.onsuccess=()=>{
+            try{result({value:req.result?req.result.value:null,generation:generationOf(gen.result)});}
+            catch(error){fail(error);}
+          };
+          gen.onerror=()=>fail(gen.error||new Error('Payment generation read failed'));
+        };
+        req.onerror=()=>fail(req.error||new Error('Payment intent read failed'));
+      });
+    },
     async get(params){
       const k=key(params);
       return transact('readonly',(store,result,fail)=>{
@@ -86,9 +110,18 @@ export function createPaymentIntentStore({indexedDB,namespace}={}){
             }
             result({created:false,value:existing.value});return;
           }
-          const put=store.add({key:k,value});
-          put.onsuccess=()=>result({created:true,value});
-          put.onerror=()=>fail(put.error||new Error('Payment intent write failed'));
+          const gen=store.get(generationKey(k));
+          gen.onsuccess=()=>{
+            try{
+              if(params.expectedGeneration!==undefined&&generationOf(gen.result)!==params.expectedGeneration){
+                fail(new Error('Payment intent conflict: earlier intent was already confirmed; review original receipt'));return;
+              }
+              const put=store.add({key:k,value});
+              put.onsuccess=()=>result({created:true,value});
+              put.onerror=()=>fail(put.error||new Error('Payment intent write failed'));
+            }catch(error){fail(error);}
+          };
+          gen.onerror=()=>fail(gen.error||new Error('Payment generation read failed'));
         };
         req.onerror=()=>fail(req.error||new Error('Payment intent read failed'));
       });
@@ -131,9 +164,21 @@ export function createPaymentIntentStore({indexedDB,namespace}={}){
           if(req.result.value.opId!==params.expectedOpId){
             fail(new Error('Payment intent conflict: cannot delete newer opId'));return;
           }
-          const del=store.delete(k);
-          del.onsuccess=()=>result(true);
-          del.onerror=()=>fail(del.error||new Error('Payment intent delete failed'));
+          const gen=store.get(generationKey(k));
+          gen.onsuccess=()=>{
+            try{
+              const generation=generationOf(gen.result)+1;
+              if(!Number.isSafeInteger(generation))throw new Error('Payment generation overflow');
+              const mark=store.put({key:generationKey(k),generation});
+              mark.onsuccess=()=>{
+                const del=store.delete(k);
+                del.onsuccess=()=>result(true);
+                del.onerror=()=>fail(del.error||new Error('Payment intent delete failed'));
+              };
+              mark.onerror=()=>fail(mark.error||new Error('Payment generation write failed'));
+            }catch(error){fail(error);}
+          };
+          gen.onerror=()=>fail(gen.error||new Error('Payment generation read failed'));
         };
         req.onerror=()=>fail(req.error||new Error('Payment intent read failed'));
       });
