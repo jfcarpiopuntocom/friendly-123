@@ -112,3 +112,30 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
   }finally{await web.close();await new Promise(r=>f.server.close(r));}
  });
 }
+
+for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
+ test('P0 Belén '+name+': stale empty observation cannot charge after another tab ACK; consecutive equal payments still work',async()=>{
+  const f=fixture(),url=await start(f),web=await engine.launch({headless:true});
+  try{
+   const context=await web.newContext(),a=await context.newPage(),b=await context.newPage();
+   await b.route('**/pago-intento-idb.mjs',route=>{
+    const source=code['/pago-intento-idb.mjs'].toString().replace('export function createPaymentIntentStore','function originalPaymentStore');
+    return route.fulfill({contentType:'text/javascript',body:source+
+      '\nexport function createPaymentIntentStore(args){const s=originalPaymentStore(args);return {...s,putIfAbsent:async(p)=>{if(!window.__gatePassed){window.__gatePassed=true;await new Promise(resolve=>window.__releaseStale=resolve);}return s.putIfAbsent(p);}};}\n'});
+   });
+   await Promise.all([a.goto(url),b.goto(url)]);
+   await Promise.all([a,b].map(p=>p.waitForFunction(()=>typeof window.ocEnviarAbono==='function')));
+   await Promise.all([quota(a),quota(b)]);
+   const stale=b.evaluate(()=>ocEnviarAbono('stale-client',3,'Abono')).then(value=>({value}),error=>({error:String(error)}));
+   await b.waitForFunction(()=>typeof window.__releaseStale==='function');
+   const first=await a.evaluate(()=>ocEnviarAbono('stale-client',3,'Abono'));
+   await b.evaluate(()=>window.__releaseStale());
+   const old=await stale;
+   assert.match(old.error||'',/conflict|referencia|generation/i,'stale call must reject before POST');
+   assert.equal(f.receipts.size,1);assert.equal(f.requests.length,1);
+   const second=await a.evaluate(()=>ocEnviarAbono('stale-client',3,'Abono'));
+   assert.notEqual(second.opId,first.opId,'sequential equal payments are distinct');
+   assert.equal(f.receipts.size,2);assert.equal(f.requests.length,2);
+  }finally{await web.close();await new Promise(r=>f.server.close(r));}
+ });
+}

@@ -2,18 +2,21 @@ name: Isolated v936 candidate seal (no deploy)
 on:
   push:
     branches: [fix/v936-restore-tree-proof-20261127]
-    paths: ['docs/cartera.js', 'test/p0-commerce-integrity.test.cjs', '.github/workflows/v936-isolated-seal.yml']
+    paths: ['docs/cartera.js', 'docs/plan-pagos-ui.js', 'src/pago-intento-idb.mjs', 'test/p0-commerce-integrity.test.cjs', '.github/workflows/v936-isolated-seal.yml']
 permissions:
   contents: write
 jobs:
   seal:
     if: github.ref == 'refs/heads/fix/v936-restore-tree-proof-20261127'
     runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -30,13 +33,15 @@ jobs:
           node scripts/gen-manifest.js
           bash check-sw.sh
           git diff --check
+      - name: Native browser and ledger generation regressions
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/p0-belen-payment-intent-idb.test.cjs test/p0-belen-idb-live-payment.test.cjs test/p0-belen-idb-live-browser.test.cjs
       - name: Seal only the isolated branch
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/cartera.min.js docs/version-manifest.json
+          git add docs/cartera.min.js docs/plan-pagos-ui.min.js docs/version-manifest.json
           if ! git diff --cached --quiet; then
-            git commit -m "build(v936): seal historical restoration projection"
+            git commit -m "build(v936): seal durable payment generation"
             git push origin HEAD:refs/heads/fix/v936-restore-tree-proof-20261127
           fi

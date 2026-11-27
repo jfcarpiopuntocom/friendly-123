@@ -21,6 +21,8 @@ const MANDATORY=[
   'test/entry-assets.test.cjs', // exact generated JS and CSS
   'test/manifest-css-canonical.test.cjs', // exact deployed bytes
   // P0: these are not just touched-area advisory checks; always run.
+  'test/p0-belen-idb-live-browser.test.cjs', // cross-tab stale observation and ACK
+  'test/p0-belen-payment-intent-idb.test.cjs', // durable generation CAS
   'test/p0-commerce-integrity.test.cjs', // exact ledger projection and native IDB regressions
   'test/p0-business-guards-selection.test.cjs', // guard the mandatory gate itself
   'test/p0-sw-identity-protocol.test.cjs', // stale/silent SW, both reply channels
