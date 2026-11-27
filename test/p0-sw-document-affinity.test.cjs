@@ -22,9 +22,10 @@ async function diagnostic(page){
 
 async function identity(page,expected) {
  await page.waitForFunction(wanted=>new Promise(resolve=>{
-  const c=navigator.serviceWorker.controller;if(!c)return resolve(false);
+  // A reply during activation is not proof that fetches are controlled yet.
+  const c=navigator.serviceWorker.controller;if(!c||c.state!=='activated')return resolve(false);
   const ch=new MessageChannel(),timer=setTimeout(()=>{ch.port1.close();resolve(false)},1500);
-  ch.port1.onmessage=e=>{clearTimeout(timer);ch.port1.close();resolve(e.data?.shell===wanted)};
+  ch.port1.onmessage=e=>{clearTimeout(timer);ch.port1.close();resolve(navigator.serviceWorker.controller===c&&c.state==='activated'&&e.data?.shell===wanted)};
   c.postMessage({tipo:'que-shell'},[ch.port2]);
  }),expected,{timeout:30000});
 }
