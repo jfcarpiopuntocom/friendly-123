@@ -21,6 +21,7 @@ for(const engine of ['chromium','webkit'])test('native '+engine+': management di
  try{
   const page=await browser.newPage({viewport:{width:390,height:844}});
   await page.setContent('<html><body><div id="gestionPromotoras"></div><details data-comm-ranking-fold open><summary>Sales associates and consignors by results</summary></details></body></html>');
+  await page.addStyleTag({content:fs.readFileSync('docs/ui2.css','utf8')});
   await page.evaluate(code=>{
    const people=[{id:'a',nombre:'Alpha',comisionBase:0},{id:'b',nombre:'Beta',comisionBase:25}];
    window.t=k=>k==='comm.g.listHeading'?'Sales associates and consignors':k;
@@ -33,8 +34,14 @@ for(const engine of ['chromium','webkit'])test('native '+engine+': management di
   const fold=page.locator('[data-comm-directory-fold]'),summary=fold.locator(':scope > summary');
   const form=page.locator('#btnAltaPromotora'),search=page.locator('#promBuscar'),rank=page.locator('[data-comm-ranking-fold]');
   assert.equal(await fold.count(),1);assert.equal(await summary.locator('h3').count(),1);assert.equal(await fold.evaluate(e=>e.open),true);
+  assert.equal(await summary.evaluate(e=>getComputedStyle(e,'::before').borderLeftColor),'rgb(0, 0, 0)');
+  assert.equal(await summary.evaluate(e=>getComputedStyle(e,'::before').borderLeftWidth),'8px');
+  assert.notEqual(await summary.evaluate(e=>getComputedStyle(e,'::before').transform),'none');
   assert.equal(await page.locator('[data-abrir-promotora="a"]').isVisible(),true);
   await summary.click();assert.equal(await fold.evaluate(e=>e.open),false);
+  assert.equal(await summary.evaluate(e=>getComputedStyle(e,'::before').transform),'none');
+  assert.equal(await page.locator('#promBuscarConteo').isVisible(),false);
+  assert.equal(await page.locator('#listaPromotoras').isVisible(),false);
   assert.equal(await search.isVisible(),false);assert.equal(await form.isVisible(),true);assert.equal(await rank.evaluate(e=>e.open),true);
   await page.evaluate(()=>window.renderGestionPromotoras());assert.equal(await fold.evaluate(e=>e.open),false);
   await summary.click();await search.fill('Beta');
