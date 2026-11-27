@@ -20,9 +20,9 @@ test('C209 manual _purge reentry updates old SW controller in place, then allows
   let serverShell='f123-shell-v892',controllerShell='f123-shell-v891';
   let reloads=0,updates=0,skips=0;
   const swListeners=new Map();
-  const emit=(ev,data)=>{for(const fn of swListeners.get(ev)||[])fn({data});};
+  const emit=(ev,data)=>{for(const fn of swListeners.get(ev)||[])fn({data,source:sw.controller});};
   const sw={
-    controller:{postMessage({tipo}){if(tipo==='que-shell')emit('message',{tipo:'shell-actual',shell:controllerShell});}},
+    controller:{state:'activated',postMessage({tipo}){if(tipo==='que-shell')emit('message',{tipo:'shell-actual',shell:controllerShell});}},
     addEventListener(type,fn){const list=swListeners.get(type)||[];list.push(fn);swListeners.set(type,list);},
     removeEventListener(type,fn){swListeners.set(type,(swListeners.get(type)||[]).filter(x=>x!==fn));},
     getRegistration:async()=>({
