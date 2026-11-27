@@ -68,4 +68,18 @@ jobs:
           (( ${#TESTS[@]} > 0 )) || { echo "Empty test selection"; exit 1; }
           printf 'P0: %s test files, no caps, no skips\n' "${#TESTS[@]}"
           printf '%s\n' "${TESTS[@]}" >> "$GITHUB_STEP_SUMMARY"
-          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=2 --test-timeout=120000 "${TESTS[@]}"
+          # Native multi-generation SW takeover requires sole browser ownership.
+          # Keep the full selected set and all deadlines/assertions; isolate only this file.
+          REGULAR=()
+          AFFINITY=false
+          for t in "${TESTS[@]}"; do
+            if [ "$t" = "test/p0-sw-document-affinity.test.cjs" ]; then AFFINITY=true
+            else REGULAR+=("$t")
+            fi
+          done
+          if [ "$AFFINITY" = true ]; then
+            node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/p0-sw-document-affinity.test.cjs
+          fi
+          if (( ${#REGULAR[@]} )); then
+            node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=2 --test-timeout=120000 "${REGULAR[@]}"
+          fi
