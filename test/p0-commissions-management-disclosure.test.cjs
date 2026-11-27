@@ -32,9 +32,13 @@ for(const engine of ['chromium','webkit'])test('native '+engine+': management di
   await page.evaluate(()=>window.renderGestionPromotoras());
   const fold=page.locator('[data-comm-directory-fold]'),summary=fold.locator(':scope > summary');
   const form=page.locator('#btnAltaPromotora'),search=page.locator('#promBuscar'),rank=page.locator('[data-comm-ranking-fold]');
+  await page.addStyleTag({content:fs.readFileSync('docs/ui2.css','utf8')});
+  assert.equal(await summary.evaluate(e=>getComputedStyle(e,'::before').borderLeftWidth),'8px');
+  assert.equal(await summary.evaluate(e=>getComputedStyle(e,'::before').borderLeftColor),'rgb(0, 0, 0)');
+  assert.notEqual(await summary.evaluate(e=>getComputedStyle(e,'::before').transform),'none');
   assert.equal(await fold.count(),1);assert.equal(await summary.locator('h3').count(),1);assert.equal(await fold.evaluate(e=>e.open),true);
   assert.equal(await page.locator('[data-abrir-promotora="a"]').isVisible(),true);
-  await summary.click();assert.equal(await fold.evaluate(e=>e.open),false);
+  await summary.click();assert.equal(await fold.evaluate(e=>e.open),false);assert.equal(await summary.evaluate(e=>getComputedStyle(e,'::before').transform),'none');
   assert.equal(await search.isVisible(),false);assert.equal(await form.isVisible(),true);assert.equal(await rank.evaluate(e=>e.open),true);
   await page.evaluate(()=>window.renderGestionPromotoras());assert.equal(await fold.evaluate(e=>e.open),false);
   await summary.click();await search.fill('Beta');
