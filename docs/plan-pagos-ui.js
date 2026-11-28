@@ -591,9 +591,12 @@
 
     // Async IDB hydration must finish before the user can attempt a payment.
     // A stale/foreign legacy reference and an IDB reference are never merged by guess.
+    // Observe the allocation generation at modal open so a simultaneous second tab
+    // cannot issue a new payment after another tab finishes payment + allocation.
+    var observacionAsignacion = {};
     q("pp-ab-ok").disabled = true;
     Promise.all([leerReferenciaDurable(clienteId, "payment"),
-      leerReferenciaDurable(clienteId, "allocation")]).then(function (refs) {
+      leerReferenciaDurable(clienteId, "allocation", observacionAsignacion)]).then(function (refs) {
       if (!referenciaLocalValida) throw new Error("La referencia anterior requiere revisión.");
       anterior = refs[0]; pendienteAsignacion = refs[1];
       // An allocation intent alone is safe to replace only if the mandatory
@@ -637,7 +640,8 @@
           throw new Error(es ? "El cobro anterior necesita revisión antes de cambiar su importe." :
             "The original payment requires review before changing its amount.");
         await _pagoLiberarReferencia(claveAsignacion(clienteId), clienteId, "allocation", pendienteAsignacion.opId);
-        if (await leerReferenciaDurable(clienteId, "allocation"))
+        observacionAsignacion = {};
+        if (await leerReferenciaDurable(clienteId, "allocation", observacionAsignacion))
           throw new Error(es ? "No se pudo confirmar la cancelación de la intención anterior." :
             "Could not confirm removal of the unsent allocation intent.");
         pendienteAsignacion = null;
@@ -789,7 +793,7 @@
           abonoId: null, partes: partes, monto: monto, motivo: motivo
         };
         tarea = guardarReferenciaPagoDurable(
-          claveAsignacion(clienteId), pendienteAsignacion, false, clienteId, "allocation")
+          claveAsignacion(clienteId), pendienteAsignacion, false, clienteId, "allocation", observacionAsignacion)
           .then(function () { return reanudarAsignacion(clienteId, pendienteAsignacion); })
           .catch(function (errorGuardar) {
             // Keep the exact pending reference if storage succeeded and the

@@ -123,26 +123,26 @@
      interceptaba fetch() y todo /api/* devolvia 404 (selector de sucursal
      roto, hero de error). Deben cargar EN EL HEAD, antes del script principal,
      para que el mock ya este instalado cuando el app arranque. NO QUITAR. -->
-<script defer src="./barcode128.js"></script>
-<script defer src="./qrcode-local.min.js"></script>
+<script type="text/plain" data-post-pin-src="./barcode128.js"></script>
+<script type="text/plain" data-post-pin-src="./qrcode-local.min.js"></script>
 <!-- tutorial-ui.js: ahora lo pide carga-tardia.js despues de la primera pantalla (v599). barcode128/qrcode siguen al arranque: una etiqueta impresa en los primeros segundos no puede salir sin codigo. -->
 <!-- Generador QR 100% local (Kazuhiko Arase, MIT, vendoreado): etiquetas y sync por QR sin internet -->
 <!-- Local-first: pocketbase-client.js se carga SIEMPRE pero queda dormido
      si el dueño no guardó una URL de PocketBase en Avanzado (localStorage
      OC_PB_URL). Por defecto todo corre local: mock-backend.js en la demo
      estática, o server.js real en el servidor local del negocio. -->
-<script defer src="./pocketbase-client.min.js"></script>
+<script type="text/plain" data-post-pin-src="./pocketbase-client.min.js"></script>
 <script defer src="./estado-ab.min.js"></script>
 <script defer src="./estado-idb.min.js"></script>
 <script defer src="./canarios.js"></script>
-<script defer src="./copiar-libre.js"></script>
+<script type="text/plain" data-post-pin-src="./copiar-libre.js"></script>
 <script defer src="./invariantes.js"></script>
 <script defer src="./core/payout-ledger.min.js"></script>
 <script defer src="./core/ledger.min.js"></script>
 <script defer src="./core/sales-audit.js"></script>
 <script defer src="./core/business-read-model.min.js"></script>
 <script defer src="./customer-profile.js"></script>
-<script defer src="./sales-audit-ui.js"></script>
+<script type="text/plain" data-post-pin-src="./sales-audit-ui.js"></script>
 <script defer src="./core/demo-huellas.min.js"></script>
 <script defer src="./mock-backend.min.js"></script>
 <script defer src="./red-segura.js"></script>
@@ -934,10 +934,10 @@
   </div>
 </div>
 
-<script src="./core/commission-history.js" defer></script>
-<script src="./app-inline-01.min.js" defer></script>
+<script type="text/plain" data-post-pin-src="./core/commission-history.js"></script>
+<script type="text/plain" data-post-pin-src="./app-inline-01.min.js"></script>
 <!-- C100: proyección de comisiones por beneficiario; dinero intacto. -->
-<script defer src="./commissions-by-person.js"></script>
+<script type="text/plain" data-post-pin-src="./commissions-by-person.js"></script>
 
 <script defer src="./crypto-store.min.js"></script>
 <script defer src="./email-recovery.js"></script>
@@ -953,50 +953,50 @@
   <script defer src="./firebase-relay.min.js"></script>
   <script defer src="./cf-relay.min.js"></script>
   <script defer src="./relay-selector.min.js"></script>
-  <script defer src="./dashboard-broadcast.js"></script>
+  <script type="text/plain" data-post-pin-src="./dashboard-broadcast.js"></script>
   <script defer src="./sync-realtime.min.js"></script>
   <script defer src="./sync-watchdog.min.js"></script>
   <script defer src="./auth-ui.min.js"></script>
   <!-- DORMIDO (orden de JFC, 2026-11-12): tab-session.js ya no se carga; el archivo se conserva. -->
-  <script defer src="./soporte-visual.js"></script>
-  <script defer src="./backup-scheduler.min.js"></script>
-<script defer src="./avanzado-extra.min.js"></script>
+  <script type="text/plain" data-post-pin-src="./soporte-visual.js"></script>
+  <script type="text/plain" data-post-pin-src="./backup-scheduler.min.js"></script>
+<script type="text/plain" data-post-pin-src="./avanzado-extra.min.js"></script>
 <!-- Vista del artista (benchmark #6, JFC 2026-09-24): solo con PIN de artista. La frontera real es la compuerta de mock-backend.js. -->
-<script defer src="./artista.min.js"></script>
-<script defer src="./geo-ping.min.js"></script>
+<script type="text/plain" data-post-pin-src="./artista.min.js"></script>
+<script type="text/plain" data-post-pin-src="./geo-ping.min.js"></script>
 <!-- Novedades: experimental employee gamification (EXPERIMENTAL FEATURE,
      JFC 2026-07-22). Separate module, ON by DEFAULT (owner can turn it off
      in Advanced with an explicit "0").
      See novedades.js for detail — never touches real sales/inventory. -->
-<script defer src="./novedades.min.js"></script>
-<script defer src="./help-ui.min.js"></script>
+<script type="text/plain" data-post-pin-src="./novedades.min.js"></script>
+<script type="text/plain" data-post-pin-src="./help-ui.min.js"></script>
 <!-- idb-fotos.js (JFC 2026-07-18): DEBE cargar antes de vista-perchas.js —
      expone window.OCFotos, que vista-perchas.js usa para persistir fotos de
      percha en IndexedDB en vez de localStorage. -->
 <script defer src="./idb-fotos.min.js"></script>
-<script defer src="./expense-receipt.js"></script>
+<script type="text/plain" data-post-pin-src="./expense-receipt.js"></script>
 <!-- v448 GOLDEN G07: hexagonal photo core. Domain + application load before the UI adapter. -->
-<script defer src="./core/shelf-photo-policy.js"></script>
-<script defer src="./application/recover-shelf-photo.js"></script>
-<script defer src="./idb-archivo.js"></script>
-<script defer src="./simon-config.min.js"></script>
-<script defer src="./percha-reposicion.min.js"></script>
-<script defer src="./micelio-vivo.min.js"></script>
+<script type="text/plain" data-post-pin-src="./core/shelf-photo-policy.js"></script>
+<script type="text/plain" data-post-pin-src="./application/recover-shelf-photo.js"></script>
+<script type="text/plain" data-post-pin-src="./idb-archivo.js"></script>
+<script type="text/plain" data-post-pin-src="./simon-config.min.js"></script>
+<script type="text/plain" data-post-pin-src="./percha-reposicion.min.js"></script>
+<script type="text/plain" data-post-pin-src="./micelio-vivo.min.js"></script>
 <script defer src="./device-environment.js"></script>
-<script defer src="./micelio-ui.min.js"></script>
-<script defer src="./borradores.min.js"></script>
-<script defer src="./vista-perchas.min.js"></script>
-<script defer src="./welcome-ui.min.js"></script>
-<script defer src="./carga-tardia.js"></script>
+<script type="text/plain" data-post-pin-src="./micelio-ui.min.js"></script>
+<script type="text/plain" data-post-pin-src="./borradores.min.js"></script>
+<script type="text/plain" data-post-pin-src="./vista-perchas.min.js"></script>
+<script type="text/plain" data-post-pin-src="./welcome-ui.min.js"></script>
+<script type="text/plain" data-post-pin-src="./carga-tardia.js"></script>
 <!-- Ganchos del embudo SOLO en el demo (JFC 2026-09-24, shell 375). Tarjetas en linea, nunca modales. Ver ganchos-demo.js. -->
-<script defer src="./ganchos-demo.js"></script>
+<script type="text/plain" data-post-pin-src="./ganchos-demo.js"></script>
 <!-- MICELIO (homologado de AMIGABLE, 2026-07-28). El bus va primero:
      hechos.js se engancha a el al cargar. Ver docs/reconciliacion.js. -->
 <script defer src="./event-bus.js"></script>
 <script defer src="./logger.js"></script>
-<script defer src="./telemetry.js"></script>
+<script type="text/plain" data-post-pin-src="./telemetry.js"></script>
 <script defer src="./identity-context.js"></script>
-<script defer src="./audit-store.js"></script>
+<script type="text/plain" data-post-pin-src="./audit-store.js"></script>
 <script defer src="./sync-queue.js"></script>
 <script defer src="./sync-outbox.js"></script>
 <!-- Plan C del sync redundante (Yjs/CRDT). ENCENDIDO por defecto (JFC 2026-09-15):
@@ -1009,26 +1009,26 @@
 <script defer src="./sync-latencia.min.js"></script>
 <script defer src="./sync-yjs.min.js"></script>
 <script defer src="./owner-approved-inventory-repair.js"></script>
-<script defer src="./ui-actions.min.js"></script>
+<script type="text/plain" data-post-pin-src="./ui-actions.min.js"></script>
 <script defer src="./feature-gate.js"></script>
 <script defer src="./salud-app.js"></script>
 <script defer src="./hechos.min.js"></script>
-<script defer src="./reconciliacion.min.js"></script>
-<script defer src="./cartera.min.js"></script>
-<script defer src="./plan-pagos.min.js"></script>
-<script defer src="./plan-pagos-ui.min.js"></script>
-<script defer src="./caja-chica.js"></script>
+<script type="text/plain" data-post-pin-src="./reconciliacion.min.js"></script>
+<script type="text/plain" data-post-pin-src="./cartera.min.js"></script>
+<script type="text/plain" data-post-pin-src="./plan-pagos.min.js"></script>
+<script type="text/plain" data-post-pin-src="./plan-pagos-ui.min.js"></script>
+<script type="text/plain" data-post-pin-src="./caja-chica.js"></script>
 <!-- uFuzzy (JFC 2026-07-30): busqueda tolerante a errores de tipeo para
      Clientes (via lista-dinamica.js). Vendorizado localmente, MIT, sin
      CDN, sin build step - si falta o falla, lista-dinamica.js cae sola al
      filtro por substring de siempre (ver feedback_aislar_fallos_ui_nunca_datos). -->
-<script defer src="./vendor/ufuzzy.min.js"></script>
-<script defer src="./lista-dinamica.min.js"></script>
+<script type="text/plain" data-post-pin-src="./vendor/ufuzzy.min.js"></script>
+<script type="text/plain" data-post-pin-src="./lista-dinamica.min.js"></script>
 <!-- MiniSearch (JFC 2026-07-30): busqueda tolerante + filtro por categoria
      para el grid tactil de Sold. Mismo criterio de aislamiento: si falla,
      el buscador cae al filtro por substring que ya existia. -->
-<script defer src="./vendor/minisearch.min.js"></script>
-<script defer src="./respaldo-empleado.min.js"></script>
+<script type="text/plain" data-post-pin-src="./vendor/minisearch.min.js"></script>
+<script type="text/plain" data-post-pin-src="./respaldo-empleado.min.js"></script>
 <!-- CARGADOR DE CODIGO (Bloque P, fase A canario, JFC 2026-09-24). Los cuatro
      scripts de abajo ya no son <script src>: los pide cargador.js, en orden,
      desde el origen remoto si hay uno (Hostinger) y desde github.io si no o

@@ -30,9 +30,13 @@ test('entry documents stay small and every extracted asset is verified and avail
     }
   }
   const app=read('docs/index.html').replace(/<!--[\s\S]*?-->/g,'');
-  for(const match of app.matchAll(/<script\b[^>]*src="(\.\/[^"#]+)"[^>]*>/g)){
+  for(const match of app.matchAll(/<script\b[^>]*\ssrc="(\.\/[^"#]+)"[^>]*>/g)){
     if(match[1]==='./aislamiento.js')assert.doesNotMatch(match[0],/\bdefer\b/);
     else assert.match(match[0],/\bdefer\b/,'local dependency must preserve ordered deferred execution '+match[1]);
+  }
+  for(const match of app.matchAll(/<script\b[^>]*data-post-pin-src="(\.\/[^"#]+)"[^>]*>/g)){
+    assert.match(match[0],/\btype="text\/plain"/,'post-PIN marker must stay inert until PIN unlock '+match[1]);
+    assert.ok(sw.includes('"'+match[1]+'"'),'missing offline resource for post-PIN script '+match[1]);
   }
   assert.doesNotMatch(app,/<link[^>]*as="script"/);
 });
