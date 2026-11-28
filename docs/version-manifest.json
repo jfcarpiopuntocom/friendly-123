@@ -107,7 +107,7 @@
     "./reconciliacion.min.js": "sha256-36365f7d8f1c164359bc5942bdf26c4b39d1f300be3037cc03d1346af3de4a5b",
     "./cartera.min.js": "sha256-569f35eba23591cebbcbadd724ebd2185dd00b1d81fc4509c2ad8c9794f066d1",
     "./plan-pagos.min.js": "sha256-60b2f4164fbe2e405bf3b83576b8ce8f3d0b7ed3dc1a559cb7bc3a298817fa4c",
-    "./plan-pagos-ui.min.js": "sha256-b09aae4cb441c2740f9ecd076d3dfcb1d49af0069a521e21c8ef54359a140194",
+    "./plan-pagos-ui.min.js": "sha256-7a0d97ba80894598345d5bb5efa790adf6b4726a6ae1acdc19ae114f2ab5d248",
     "./pago-intento-idb.mjs": "sha256-9980291983fce65da5fb56985fb9fa1b93bae37305d41010a5a1bfc6f383dd62",
     "./caja-chica.js": "sha256-a87a3d8624e5399b24d1804a9a7bfaf017a2cb5f31114b345048f93095efc3ed",
     "./respaldo-empleado.min.js": "sha256-5f96bfa8ed4d934b9d7bc872b86422297519165bc584880908438e610623720c",

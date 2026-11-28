@@ -640,10 +640,11 @@
           throw new Error(es ? "El cobro anterior necesita revisión antes de cambiar su importe." :
             "The original payment requires review before changing its amount.");
         await _pagoLiberarReferencia(claveAsignacion(clienteId), clienteId, "allocation", pendienteAsignacion.opId);
-        observacionAsignacion = {};
-        if (await leerReferenciaDurable(clienteId, "allocation", observacionAsignacion))
+        if (await leerReferenciaDurable(clienteId, "allocation"))
           throw new Error(es ? "No se pudo confirmar la cancelación de la intención anterior." :
             "Could not confirm removal of the unsent allocation intent.");
+        observacionAsignacion = {};
+        await leerReferenciaDurable(clienteId, "allocation", observacionAsignacion);
         pendienteAsignacion = null;
         q("pp-ab-monto").disabled = false;
         q("pp-ab-monto").value = "";
