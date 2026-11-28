@@ -7,7 +7,7 @@ const docs=path.join(__dirname,'..','docs');
 const UMBRAL=10*1024; // solo vale la pena minificar los grandes
 const NO=['aislamiento.js','salud-app.js','cargador.js','core/commission-history.js','commissions-by-person.js'] /* tests y dashboard.html fijan estos nombres */; // arranque/verificacion: se sirven tal cual
 const html=fs.readFileSync(path.join(docs,'index.html'),'utf8');
-const names=[...html.matchAll(/<script\b[^>]*\bsrc=["']\.\/([^"']+)["']/g)].map(m=>m[1])
+const names=[...html.matchAll(/<script\b[^>]*\b(?:data-post-pin-src|src)=["']\.\/([^"']+)["']/g)].map(m=>m[1])
   .map(n=>n.replace(/\.min\.js$/,'.js')).filter((n,i,a)=>a.indexOf(n)===i)
   .filter(n=>!NO.includes(n)&&!n.startsWith('vendor/')&&!/^app-inline-|^dashboard-main/.test(n))
   .filter(n=>fs.existsSync(path.join(docs,n))&&fs.statSync(path.join(docs,n)).size>=UMBRAL);

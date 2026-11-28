@@ -591,9 +591,12 @@
 
     // Async IDB hydration must finish before the user can attempt a payment.
     // A stale/foreign legacy reference and an IDB reference are never merged by guess.
+    // Observe the allocation generation at modal open so a simultaneous second tab
+    // cannot issue a new payment after another tab finishes payment + allocation.
+    var observacionAsignacion = {};
     q("pp-ab-ok").disabled = true;
     Promise.all([leerReferenciaDurable(clienteId, "payment"),
-      leerReferenciaDurable(clienteId, "allocation")]).then(function (refs) {
+      leerReferenciaDurable(clienteId, "allocation", observacionAsignacion)]).then(function (refs) {
       if (!referenciaLocalValida) throw new Error("La referencia anterior requiere revisión.");
       anterior = refs[0]; pendienteAsignacion = refs[1];
       // An allocation intent alone is safe to replace only if the mandatory
@@ -640,6 +643,8 @@
         if (await leerReferenciaDurable(clienteId, "allocation"))
           throw new Error(es ? "No se pudo confirmar la cancelación de la intención anterior." :
             "Could not confirm removal of the unsent allocation intent.");
+        observacionAsignacion = {};
+        await leerReferenciaDurable(clienteId, "allocation", observacionAsignacion);
         pendienteAsignacion = null;
         q("pp-ab-monto").disabled = false;
         q("pp-ab-monto").value = "";
@@ -789,7 +794,7 @@
           abonoId: null, partes: partes, monto: monto, motivo: motivo
         };
         tarea = guardarReferenciaPagoDurable(
-          claveAsignacion(clienteId), pendienteAsignacion, false, clienteId, "allocation")
+          claveAsignacion(clienteId), pendienteAsignacion, false, clienteId, "allocation", observacionAsignacion)
           .then(function () { return reanudarAsignacion(clienteId, pendienteAsignacion); })
           .catch(function (errorGuardar) {
             // Keep the exact pending reference if storage succeeded and the

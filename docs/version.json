@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.36",
+  "version": "v0.9.37",
   "fecha": "2026-11-27",
-  "changelog": "v0.9.36: integridad comercial cartera/hechos/estados UI, coherencia de Service Worker y PIN, y directorio plegable lazy en comisiones.",
+  "changelog": "v0.9.37: carga diferida post-PIN (-66% bytes JS en pantalla PIN) y hardening multi-pestaña en modal de abonos.",
   "requerida": false,
-  "shell": "f123-shell-v936",
+  "shell": "f123-shell-v937",
   "apagar": [],
-  "releaseName": "v0.9.36",
-  "cacheGeneration": "golden474"
+  "releaseName": "v0.9.37",
+  "cacheGeneration": "golden475"
 }
